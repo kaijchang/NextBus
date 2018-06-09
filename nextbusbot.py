@@ -231,7 +231,6 @@ async def add(ctx):
 async def notifier():
     await asyncio.sleep(60 - time.time() % 60)
     while True:
-        start = time.time()
         now = datetime.datetime.utcnow()
         now_in_minutes = round(
             (now - now.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 60)
@@ -247,7 +246,7 @@ async def notifier():
             except KeyError:
                 await bot.say('Notification Error Occurred')
 
-        await asyncio.sleep(60 - (time.time() - start))
+        await asyncio.sleep(60 - time.time() % 60)
 
 
 @bot.event
