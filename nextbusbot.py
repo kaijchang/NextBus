@@ -1,5 +1,5 @@
 from discord.ext import commands
-import discord
+from discord.utils import get
 import requests
 import datetime
 import time
@@ -15,14 +15,18 @@ bot = commands.Bot(command_prefix='/',
 
 @bot.command(pass_context=True)
 async def start(ctx):
-    if ctx.message.channel.is_private:
-        await bot.say("""Hello!\nI'm a Discord Bot that can give you bus time notifications!\nLet's start!\nUse /add to add a notification!""")
-    else:
+    if not ctx.message.channel.is_private:
         await bot.say("Sorry, I can't help you here. Please PM me!")
+    else:
+        await bot.say("Hello!\nI'm a Discord Bot that can give you bus time notifications!\nLet's start!\nUse /add to add a notification!")
 
 
 @bot.command(pass_context=True)
 async def add(ctx):
+    if not ctx.message.channel.is_private:
+        await bot.say("Sorry, I can't help you here. Please PM me!")
+        return
+
     await bot.say('Which bus system do you want to set a notification for?')
 
     system_choice = await bot.wait_for_message(
@@ -127,7 +131,7 @@ async def add(ctx):
                     await bot.say("That's not a valid choice.")
                     return
 
-                await bot.say("When should I give you a notification?\nFor Example:\n'6 30' = 6:30 AM\n'16 30' = 4:30 AM")
+                await bot.say("When should I give you a notification?\nFor Example:\n'16 30' = 4:30 AM")
                 time_choice = await bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
 
@@ -160,9 +164,14 @@ async def notifier():
         now = datetime.datetime.now()
         now_in_minutes = round(
             (now - now.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 60)
-        for notification in db.posts.find({'time': {'$gt': now_in_minutes - 1, '$lt': now_in_minutes + 1}}):
-            await bot.send_message(discord.utils.get(
-                bot.get_all_members(), id=notification['user']), 'Bus Notification!')
+        for notification in db.posts.find({'time': now_in_minutes}):
+            time_predictions = requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(
+                notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])).json()['predictions']
+            msg = "Line: {}\n\nStop: {} - {}\n\n".format(notification['line']['title'], notification['stop']['title'], time_predictions['direction']['title']) + '\n'.join(
+                ['Bus is Coming in {} Minutes'.format(prediction['minutes']) for prediction in time_predictions['direction']['prediction']])
+
+            await bot.send_message(get(
+                bot.get_all_members(), id=notification['user']), msg)
         await asyncio.sleep(60 - (time.time() - start))
 
 
