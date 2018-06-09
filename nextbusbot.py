@@ -12,6 +12,76 @@ db = client.next_bus_db
 bot = commands.Bot(command_prefix='/',
                    description='Get Bus Notifcations from NextBus API')
 
+time_zones = {
+    'actransit': -7,
+    'jhu-apl': -4,
+    'art': -4,
+    'atlanta-sc': -4,
+    'bigbluebus': -7,
+    'brockton': -4,
+    'camarillo': -4,
+    'ccrta': -4,
+    'chapel-hill': -4,
+    'charm-city': -4,
+    'ccny': -4,
+    'oxford-ms': -5,
+    'west-hollywood': -7,
+    'cyride': -5,
+    'dc-circulator': -4,
+    'dc-streetcar': -4,
+    'da': -4,
+    'dta': -4,
+    'dumbarton': -7,
+    'charles-river': -4,
+    'ecu': -4,
+    'escalon': -7,
+    'fast': -7,
+    'fairfax': -4,
+    'foothill': -7,
+    'ft-worth': -5,
+    'glendale': -7,
+    'south-coast': -7,
+    'indianapolis-air': -4,
+    'jfk': -4,
+    'jtafla': -4,
+    'laguardia': -4,
+    'lga': -4,
+    'lametro': -7,
+    'lametro-rail': -7,
+    'mbta': -4,
+    'mit': -4,
+    'moorpark': -7,
+    'ewr': -4,
+    'nova-se': -4,
+    'omnitrans': -7,
+    'pvpta': -7,
+    'sria': -4,
+    'psu': -4,
+    'portland-sc': -7,
+    'pgc': -4,
+    'reno': -7,
+    'radford': -4,
+    'roosevelt': -4,
+    'rutgers-newark': -4,
+    'rutgers': -4,
+    'sf-muni': -7,
+    'seattle-sc': -7,
+    'simi-valley': -7,
+    'stl': -4,
+    'sct': -7,
+    'geg': -7,
+    'tahoe': -7,
+    'thousand-oaks': -7,
+    'ttc': -4,
+    'unitrans': -7,
+    'ucb': -7,
+    'umd': -4,
+    'vista': -7,
+    'wku': -4,
+    'winston-salem': -7,
+    'york-pa': -4
+}
+
 
 @bot.command(pass_context=True)
 async def start(ctx):
@@ -146,7 +216,7 @@ async def add(ctx):
                             'system': bus_system,
                             'stop': stop,
                             'line': line,
-                            'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1])
+                            'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60
                         }
                         db.posts.insert_one(post)
                         await bot.say("Notification set! You're ready to go!")
@@ -159,19 +229,24 @@ async def add(ctx):
 
 
 async def notifier():
+    await asyncio.sleep(60 - time.time() % 60)
     while True:
         start = time.time()
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         now_in_minutes = round(
             (now - now.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 60)
         for notification in db.posts.find({'time': now_in_minutes}):
-            time_predictions = requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(
-                notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])).json()['predictions']
-            msg = "Line: {}\n\nStop: {} - {}\n\n".format(notification['line']['title'], notification['stop']['title'], time_predictions['direction']['title']) + '\n'.join(
-                ['Bus is Coming in {} Minutes'.format(prediction['minutes']) for prediction in time_predictions['direction']['prediction']])
+            try:
+                time_predictions = requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(
+                    notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])).json()['predictions']
+                msg = "Line: {}\n\nStop: {} - {}\n\n".format(notification['line']['title'], notification['stop']['title'], time_predictions['direction']['title']) + '\n'.join(
+                    ['Bus is Coming in {} Minutes'.format(prediction['minutes']) for prediction in time_predictions['direction']['prediction']])
 
-            await bot.send_message(get(
-                bot.get_all_members(), id=notification['user']), msg)
+                await bot.send_message(get(
+                    bot.get_all_members(), id=notification['user']), msg)
+            except KeyError:
+                await bot.say('Notification Error Occurred')
+
         await asyncio.sleep(60 - (time.time() - start))
 
 
