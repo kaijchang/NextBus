@@ -2,6 +2,8 @@ from discord.ext import commands
 import discord
 import requests
 import datetime
+import time
+import asyncio
 from pymongo import MongoClient
 
 client = MongoClient()
@@ -21,7 +23,7 @@ async def start(ctx):
 
 @bot.command(pass_context=True)
 async def add(ctx):
-    await bot.say('Which Bus System do you want to set a notification for?')
+    await bot.say('Which bus system do you want to set a notification for?')
 
     system_choice = await bot.wait_for_message(
         author=ctx.message.author, timeout=300)
@@ -53,7 +55,7 @@ async def add(ctx):
             await bot.say("That's not a valid choice.")
             return
 
-        await bot.say('Which Line do you want to set a notification for?')
+        await bot.say('Which line do you want to set a notification for?')
 
         line_choice = await bot.wait_for_message(
             author=ctx.message.author, timeout=300)
@@ -134,18 +136,34 @@ async def add(ctx):
                     return
 
                 try:
-                    post = {
-                        'user': ctx.message.author.name,
-                        'system': bus_system,
-                        'stop': stop,
-                        'line': line,
-                        'time': str(datetime.time(int(time_choice.content.split()[0]), int(time_choice.content.split()[1])))
-                    }
-                    db.posts.insert_one(post)
-                    await bot.say("Notification set! You're ready to go!")
+                    if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) < 1440:
+                        post = {
+                            'user': ctx.message.author.id,
+                            'system': bus_system,
+                            'stop': stop,
+                            'line': line,
+                            'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1])
+                        }
+                        db.posts.insert_one(post)
+                        await bot.say("Notification set! You're ready to go!")
+                    else:
+                        await bot.say('Maximum time is 23 59.')
+                        return
                 except Exception:
                     await bot.say("That's not a valid time.")
                     return
+
+
+async def notifier():
+    while True:
+        start = time.time()
+        now = datetime.datetime.now()
+        now_in_minutes = round(
+            (now - now.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 60)
+        for notification in db.posts.find({'time': {'$gt': now_in_minutes - 1, '$lt': now_in_minutes + 1}}):
+            await bot.send_message(discord.utils.get(
+                bot.get_all_members(), id=notification['user']), 'Bus Notification!')
+        await asyncio.sleep(60 - (time.time() - start))
 
 
 @bot.event
@@ -155,5 +173,6 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------')
+    bot.loop.create_task(notifier())
 
 bot.run('TOKEN')
