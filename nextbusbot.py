@@ -72,6 +72,9 @@ async def add(ctx):
             "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
         return
 
+    elif len(found_busses) == 1:
+        bus_system = found_busses[0]
+
     else:
         # Provide user with the matching bus systems and ask them to choose one.
         embed = discord.Embed(title='Choose a system by number.', type='rich', colour=discord.Colour(
@@ -91,188 +94,206 @@ async def add(ctx):
 
         try:
             bus_system = found_busses[int(choice.content) - 1]
-            await bot.say('You selected {}!'.format(bus_system['title']))
 
         except Exception:
             # Tell the user if they provide an invalid index.
             await bot.say("I don't think that's a valid choice.")
             return
 
-        # The bot asks the user for a route/line.
-        await bot.say('Which route/ line do you use?')
+    await bot.say('You selected {}!'.format(bus_system['title']))
 
-        line_choice = await bot.wait_for_message(
+    # The bot asks the user for a route/line.
+    await bot.say('Which route/ line do you use?')
+
+    line_choice = await bot.wait_for_message(
+        author=ctx.message.author, timeout=300)
+
+    if not line_choice:
+        # Tell user when bot.wait_for_message times out.
+        await bot.say("Sorry, I didn't pick up a response.")
+        return
+
+    # Get all lines for the given bus system from the NextBus API.
+    async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
+        lines = await response.json()
+
+    # Sort out all the matching lines.
+    found_lines = [line for line in lines['route']
+                   if line_choice.content.upper() in line['tag']]
+
+    if len(found_lines) == 0:
+        # Tell user that no bus systems were found.
+        await bot.say(
+            "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+
+    elif len(found_lines) == 1:
+        line = found_lines[0]
+
+    else:
+        # Provide user with the matching lines and ask them to choose one.
+        embed = discord.Embed(title='Choose a line by number.', type='rich', colour=discord.Colour(
+            0x37980a))
+
+        embed.set_author(
+            name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+
+        for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
+            embed.add_field(name=t[0], value=t[1], inline=False)
+
+        await bot.say('I found {} matching lines(s).'.format(len(found_lines)), embed=embed)
+
+        choice = await bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
-        if not line_choice:
+        if not choice:
             # Tell user when bot.wait_for_message times out.
             await bot.say("Sorry, I didn't pick up a response.")
             return
 
-        # Get all lines for the given bus system from the NextBus API.
-        async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
-            lines = await response.json()
+        try:
+            line = found_lines[int(choice.content) - 1]
 
-        # Sort out all the matching lines.
-        found_lines = [line for line in lines['route']
-                       if line_choice.content.upper() in line['tag']]
+        except Exception:
+            # Tell the user if they provide an invalid index.
+            await bot.say("I don't think that's a valid choice.")
+            return
 
-        if len(found_lines) == 0:
-            # Tell user that no bus systems were found.
-            await bot.say(
-                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+    await bot.say('You selected {}!'.format(line['title']))
 
-        else:
-            # Provide user with the matching lines and ask them to choose one.
-            embed = discord.Embed(title='Choose a line by number.', type='rich', colour=discord.Colour(
-                0x37980a))
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
-            for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
-                embed.add_field(name=t[0], value=t[1], inline=False)
-            await bot.say('I found {} matching lines(s).'.format(len(found_lines)), embed=embed)
+    # The bot asks the user for a stop.
+    await bot.say('Which stop do you use?')
 
-            choice = await bot.wait_for_message(
-                author=ctx.message.author, timeout=300)
+    stop_choice = await bot.wait_for_message(
+        author=ctx.message.author, timeout=300)
 
-            if not choice:
-                # Tell user when bot.wait_for_message times out.
-                await bot.say("Sorry, I didn't pick up a response.")
-                return
+    if not stop_choice:
+        # Tell user when bot.wait_for_message times out.
+        await bot.say("Sorry, I didn't pick up a response.")
+        return
 
-            try:
-                line = found_lines[int(choice.content) - 1]
-                await bot.say('You selected {}!'.format(line['title']))
+    # Get all routes for the given bus and line from the NextBus API.
+    async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
+        route_data = await response.json()
 
-            except Exception:
-                # Tell the user if they provide an invalid index.
-                await bot.say("I don't think that's a valid choice.")
-                return
+    # Separate stop data and directional (in/outbound) data
+    stops = route_data['route']['stop']
+    direction_data = route_data['route']['direction']
 
-            # The bot asks the user for a stop.
-            await bot.say('Which stop do you use?')
+    # Sort out all matching stops.
+    found_stops = [
+        stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
 
-            stop_choice = await bot.wait_for_message(
-                author=ctx.message.author, timeout=300)
+    # Sort out all directional data for the matching stops.
+    directions = [direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+        stop['tag'] for stop in direction['stop']]]
 
-            if not stop_choice:
-                # Tell user when bot.wait_for_message times out.
-                await bot.say("Sorry, I didn't pick up a response.")
-                return
+    if len(found_stops) == 0:
+        # Tell user that no matching stops were found.
+        await bot.say(
+            "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
 
-            # Get all routes for the given bus and line from the NextBus API.
-            async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
-                route_data = await response.json()
+    elif len(found_stops) == 1:
+        stop = found_stops[0]
 
-            # Separate stop data and directional (in/outbound) data
-            stops = route_data['route']['stop']
-            direction_data = route_data['route']['direction']
+    else:
+        # Provide user with the matching lines and ask them to choose one.
+        embed = discord.Embed(title='Choose a stop by number.', type='rich', colour=discord.Colour(
+            0x37980a))
 
-            # Sort out all matching stops.
-            found_stops = [
-                stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
+        embed.set_author(
+            name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
-            # Sort out all directional data for the matching stops.
-            directions = [direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                stop['tag'] for stop in direction['stop']]]
+        for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
+            embed.add_field(
+                name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
 
-            if len(found_stops) == 0:
-                # Tell user that no matching stops were found.
-                await bot.say(
-                    "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+        await bot.say('I found {} matching stop(s).'.format(len(found_stops)), embed=embed)
+
+        choice = await bot.wait_for_message(
+            author=ctx.message.author, timeout=300)
+
+        if not choice:
+            # Tell user when bot.wait_for_message times out.
+            await bot.say("Sorry, I didn't pick up a response.")
+            return
+
+        try:
+            stop = found_stops[int(choice.content) - 1]
+
+        except Exception:
+            # Tell the user if they provide an invalid index.
+            await bot.say("That's not a valid choice.")
+            return
+
+    await bot.say('You selected {}!'.format(stop['title']))
+
+    # The bot asks for a time to notify the user.
+    embed = discord.Embed(title='When should I notify you?', type='rich', colour=discord.Colour(
+        0x37980a))
+
+    embed.add_field(name='Time Examples', value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
+
+    await bot.say(content=None, embed=embed)
+
+    time_choice = await bot.wait_for_message(
+        author=ctx.message.author, timeout=300)
+
+    if not time_choice:
+        # Tell user when bot.wait_for_message times out.
+        await bot.say("Sorry, I didn't pick up a response.")
+        return
+
+    try:
+        # Check if the user provides a time that is over the amount of time in a day.
+        if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) < 1440:
+            # Check if the time, when converted to UTC, needs to wrap back around midnight.
+            if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60 > 1440:
+                # Wrap back around midnight.
+                post = {
+                    'user': ctx.message.author.id,
+                    'system': bus_system,
+                    'stop': stop,
+                    'line': line,
+                    'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60 - 1440
+                }
 
             else:
-                # Provide user with the matching lines and ask them to choose one.
-                embed = discord.Embed(title='Choose a stop by number.', type='rich', colour=discord.Colour(
-                    0x37980a))
-                embed.set_author(
-                    name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
-                for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
-                    embed.add_field(
-                        name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
-                await bot.say('I found {} matching stop(s).'.format(len(found_stops)), embed=embed)
+                post = {
+                    'user': ctx.message.author.id,
+                    'system': bus_system,
+                    'stop': stop,
+                    'line': line,
+                    'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60
+                }
+            # Insert notification into database.
+            db.posts.insert_one(post)
 
-                choice = await bot.wait_for_message(
-                    author=ctx.message.author, timeout=300)
+            # Provide the user with a summary of their notification.
+            embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
+                0x37980a))
 
-                if not choice:
-                    # Tell user when bot.wait_for_message times out.
-                    await bot.say('Bot timed out and closed the connection.')
-                    return
+            embed.set_author(
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
-                try:
-                    stop = found_stops[int(choice.content) - 1]
-                    await bot.say('You selected {}!'.format(stop['title']))
+            embed.add_field(name='Bus System',
+                value=bus_system['title'], inline=False)
+            embed.add_field(
+                name='Line', value=line['title'], inline=False)
+            embed.add_field(
+                name='Stop', value=stop['title'], inline=False)
+            embed.add_field(name='Time', value=str(datetime.time(
+                int(time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
 
-                except Exception:
-                    # Tell the user if they provide an invalid index.
-                    await bot.say("That's not a valid choice.")
-                    return
+            await bot.say("Notification set!", embed=embed)
 
-                # The bot asks for a time to notify the user.
-                embed = discord.Embed(title='When should I notify you?', type='rich', colour=discord.Colour(
-                            0x37980a))
-                embed.add_field(name='Time Examples', value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
-                await bot.say(content=None, embed=embed)
-
-                time_choice = await bot.wait_for_message(
-                    author=ctx.message.author, timeout=300)
-
-                if not time_choice:
-                    # Tell user when bot.wait_for_message times out.
-                    await bot.say('Bot timed out and closed the connection.')
-                    return
-
-                try:
-                    # Check if the user provides a time that is over the amount of time in a day.
-                    if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) < 1440:
-                        # Check if the time, when converted to UTC, needs to wrap back around midnight.
-                        if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60 > 1440:
-                            # Wrap back around midnight.
-                            post = {
-                                'user': ctx.message.author.id,
-                                'system': bus_system,
-                                'stop': stop,
-                                'line': line,
-                                'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60 - 1440
-                            }
-                        else:
-                            post = {
-                                'user': ctx.message.author.id,
-                                'system': bus_system,
-                                'stop': stop,
-                                'line': line,
-                                'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - time_zones[bus_system['tag']] * 60
-                            }
-
-                        # Insert notification into database.
-                        db.posts.insert_one(post)
-
-                        # Provide the user with a summary of their notification.
-                        embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
-                            0x37980a))
-                        embed.set_author(
-                            name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
-                        embed.add_field(name='Bus System',
-                                        value=bus_system['title'], inline=False)
-                        embed.add_field(
-                            name='Line', value=line['title'], inline=False)
-                        embed.add_field(
-                            name='Stop', value=stop['title'], inline=False)
-                        embed.add_field(name='Time', value=str(datetime.time(
-                            int(time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
-
-                        await bot.say("Notification set!", embed=embed)
-
-                    else:
-                        # Tell user that they provided a time that exceeds the amount of time in a day.
-                        await bot.say("I don't think I'll be able to contact you at that time.")
-                        return
-
-                except Exception:
-                    # Tell user that there is an error.
-                    await bot.say("Something went wrong. I'll try to fix it soon.")
-                    return
+        else:
+            # Tell user that they provided a time that exceeds the amount of time in a day.
+            await bot.say("I don't think I'll be able to contact you at that time.")
+            return
+    except Exception:
+        # Tell user that there is an error.
+        await bot.say("Something went wrong. I'll try to fix it soon.")
+        return
 
 
 async def notifier():
