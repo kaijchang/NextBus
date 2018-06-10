@@ -1,11 +1,12 @@
 from discord.ext import commands
 import discord
-import requests
 import datetime
 import time
 import asyncio
 from pymongo import MongoClient
 import json
+import aiohttp
+
 
 # Connect to local MongoDB.
 client = MongoClient()
@@ -55,7 +56,10 @@ async def add(ctx):
 
     found_busses = []
 
-    for bus in requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList').json()['agency']:
+    async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList') as response:
+        bus_list = await response.json()
+
+    for bus in bus_list['agency']:
         # Check to see if any of the bus system's provided identifiers match with user input.
         for attribute in bus:
             if system_choice.content.lower() in bus[attribute].lower():
@@ -106,12 +110,12 @@ async def add(ctx):
             return
 
         # Get all lines for the given bus system from the NextBus API.
-        lines = requests.get(
-            'http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])).json()['route']
+        async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
+            lines = await response.json()
 
         # Sort out all the matching lines.
-        found_lines = [
-            line for line in lines if line_choice.content.upper() in line['tag']]
+        found_lines = [line for line in lines['route']
+                       if line_choice.content.upper() in line['tag']]
 
         if len(found_lines) == 0:
             # Tell user that no bus systems were found.
@@ -157,8 +161,8 @@ async def add(ctx):
                 return
 
             # Get all routes for the given bus and line from the NextBus API.
-            route_data = requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(
-                bus_system['tag'], line['tag'])).json()
+            async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
+                route_data = await response.json()
 
             # Separate stop data and directional (in/outbound) data
             stops = route_data['route']['stop']
@@ -206,7 +210,10 @@ async def add(ctx):
                     return
 
                 # The bot asks for a time to notify the user.
-                await bot.say("When should I give you a notification?\n'16 30' = 4:30 PM")
+                embed = discord.Embed(title='When should I notify you?', type='rich', colour=discord.Colour(
+                            0x37980a))
+                embed.add_field(name='Time Examples', value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
+                await bot.say(content=None, embed=embed)
 
                 time_choice = await bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
@@ -284,8 +291,8 @@ async def notifier():
         for notification in db.posts.find({'time': now_in_minutes}):
             try:
                 # Get the time_predictions from the NextBus API.
-                time_predictions = requests.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(
-                    notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])).json()['predictions']
+                async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])) as response:
+                    time_predictions = await response.json()
 
                 # Notify the user with the predicted bus times.
                 embed = discord.Embed(
@@ -298,10 +305,10 @@ async def notifier():
                     name='Stop', value=notification['stop']['title'])
                 embed.add_field(
                     name='Bus Times', value='\n'.join(
-                        ["Bus coming in {} Minutes".format(prediction['minutes']) for prediction in time_predictions['direction']['prediction']]), inline=False)
+                        ["Bus coming in {} Minutes".format(prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
 
                 await bot.send_message(discord.utils.get(
-                    bot.get_all_members(), id=notification['user']), 'NextBus Notification', embed=embed)
+                    bot.get_all_members(), id=notification['user']), 'NextBus notification!', embed=embed)
 
             except KeyError:
                 # Tell user that there is an error.
