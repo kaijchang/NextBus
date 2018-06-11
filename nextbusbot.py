@@ -37,6 +37,45 @@ async def start(ctx):
 
 
 @bot.command(pass_context=True)
+async def list(ctx):
+    if not ctx.message.channel.is_private:
+        # Tell user to PM bot if called in public channel.
+        await bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+    else:
+        # Find all notifications that the user hsa created.
+        user_notifications = [t for t in db.posts.find(
+            {'user': ctx.message.author.id})]
+
+        if len(user_notifications) > 0:
+            # Provide user with matching notifications and ask them to choose one.
+            embed = discord.Embed(title="Current Notifcations", type='rich', colour=discord.Colour(
+                0x37980a))
+
+            embed.set_author(
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+
+            for t in zip(range(1, len(user_notifications) + 1), user_notifications):
+                # Convert time from UTC to local time.
+                converted_time = t[1]['time'] + \
+                    time_zones[t[1]['system']['tag']] * 60
+
+                # Wrap around midnight.
+                if converted_time < 0:
+                    converted_time += 1440
+
+                formatted_time = str(datetime.time(divmod(converted_time, 60)[
+                                     0], divmod(converted_time, 60)[1]))
+
+                embed.add_field(name=t[0], value='{} at {}'.format(
+                    t[1]['stop']['title'], formatted_time), inline=False)
+
+            await bot.say(content=None, embed=embed)
+
+        else:
+            await bot.say('No notifications found.\nUse /add to add a notification.')
+
+
+@bot.command(pass_context=True)
 async def add(ctx):
     if not ctx.message.channel.is_private:
         # Tell user to PM bot if called in public channel.
@@ -83,6 +122,7 @@ async def add(ctx):
             name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
         for t in zip(range(1, len(found_busses) + 1), [d['title'] for d in found_busses]):
             embed.add_field(name=t[0], value=t[1], inline=False)
+
         await bot.say('I found {} matching bus system(s).'.format(len(found_busses)), embed=embed)
 
         choice = await bot.wait_for_message(
@@ -231,7 +271,8 @@ async def add(ctx):
     embed = discord.Embed(title='When should I notify you?', type='rich', colour=discord.Colour(
         0x37980a))
 
-    embed.add_field(name='Time Examples', value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
+    embed.add_field(name='Time Examples',
+                    value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
 
     await bot.say(content=None, embed=embed)
 
@@ -325,7 +366,7 @@ async def notifier():
                 embed.add_field(
                     name='Stop', value=notification['stop']['title'])
                 embed.add_field(
-                    name='Bus Times', value='\n'.join(
+                    name='Bus Times', value='\n\n'.join(
                         ["Bus coming in {} Minutes".format(prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
 
                 await bot.send_message(discord.utils.get(
