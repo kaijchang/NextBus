@@ -35,14 +35,23 @@ class NextBus:
             # Introduce the bot and supply current bot commands.
             embed = discord.Embed(title="Commands", type='rich', colour=discord.Colour(
                 0x37980a))
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
             embed.add_field(name='/add', value='Make a notification.')
             embed.add_field(name='/list', value='List current notifications.')
             embed.add_field(
                 name='/d <id>', value='Delete the notification with the given ID (see all notifications with /list)')
 
             await self.bot.say("Let's get going!", embed=embed)
+
+    @commands.command(pass_context=True, description="Bot Information")
+    async def info(self, ctx):
+        embed = discord.Embed(
+            title="NextBusBot", type='rich', description="Get Bus Notifications from NextBus!", color=0x37980a)
+
+        embed.add_field(name="Server Count", value=len(self.bot.servers))
+        embed.add_field(
+            name="Invite Me", value="[Invite link](https://discordapp.com/oauth2/authorize?client_id=454489707360026626&scope=bot)")
+
+        await self.bot.say(embed=embed)
 
     @commands.command(pass_context=True, description='The bot will list all current notifications with corresponding IDs for use when calling /delete.')
     async def list(self, ctx):
@@ -62,9 +71,6 @@ class NextBus:
                 # Provide user with matching notifications and ask them to choose one.
                 embed = discord.Embed(title="Current Notifcations", type='rich', colour=discord.Colour(
                     0x37980a))
-
-                embed.set_author(
-                    name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
                 for t in zip(range(1, len(user_notifications) + 1), user_notifications):
                     # Convert time from UTC to local time.
@@ -112,9 +118,6 @@ class NextBus:
             embed = discord.Embed(title='Notification Deleted!', type='rich', colour=discord.Colour(
                 0x37980a))
 
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
-
             embed.add_field(
                 name='Line', value=notification['line']['title'], inline=False)
             embed.add_field(
@@ -141,6 +144,10 @@ class NextBus:
 
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot.say('You forgot to include an ID for me to delete.\nUse /list to view all your notifications.')
+
+    @commands.command(pass_context=True, description='The bot will prompt you to modify the specified notification.')
+    async def change(self, ctx):
+        pass
 
     @commands.command(pass_context=True, description='The bot will give you prompts to configure a notification.')
     async def add(self, ctx):
@@ -198,8 +205,7 @@ class NextBus:
             # Provide user with the matching bus systems and ask them to choose one.
             embed = discord.Embed(title='Choose a system by number.', type='rich', colour=discord.Colour(
                 0x37980a))
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+
             for t in zip(range(1, len(found_busses) + 1), [d['title'] for d in found_busses]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
 
@@ -266,9 +272,6 @@ class NextBus:
             # Provide user with the matching lines and ask them to choose one.
             embed = discord.Embed(title='Choose a line by number.', type='rich', colour=discord.Colour(
                 0x37980a))
-
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
             for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
@@ -344,9 +347,6 @@ class NextBus:
             # Provide user with the matching lines and ask them to choose one.
             embed = discord.Embed(title='Choose a stop by number.', type='rich', colour=discord.Colour(
                 0x37980a))
-
-            embed.set_author(
-                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
             for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
                 embed.add_field(
@@ -430,9 +430,6 @@ class NextBus:
                 embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
                     0x37980a))
 
-                embed.set_author(
-                    name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
-
                 embed.add_field(name='Bus System',
                                 value=bus_system['title'], inline=False)
                 embed.add_field(
@@ -487,8 +484,7 @@ class NextBus:
                     # Notify the user with the predicted bus times.
                     embed = discord.Embed(
                         title='Notification', type='rich', colour=discord.Colour(0x37980a))
-                    embed.set_author(
-                        name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+
                     embed.add_field(
                         name='Line', value=notification['line']['title'])
                     embed.add_field(

@@ -8,19 +8,22 @@ The bot might be on and off while I take it down to add features and test.
 
 ## Commands
 
-The bot currently only takes commands in private messages.
+The bot currently only takes commands in private messages. The bot's prefix is 'bus'.
 
-### /start
+###  bus start
 The bot will give you basic information on itself and it's commands.
 
-### /add
+### bus add
 The bot will give you prompts to configure a notification.
 
-### /list
+### bus list
 The bot will list all current notifications with corresponding IDs for use when calling /delete.
 
-### /d or /delete or /D
+### bus delete|d|D <id>
 The bot will delete the specified notification.
+
+### bus info
+The bot will provide the number of servers it is a part of and it's invite link.
 
 # TODO
 
