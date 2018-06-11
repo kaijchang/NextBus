@@ -22,7 +22,7 @@ class NextBus:
 
         self.in_commands = []
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, description="The bot will give you basic information on itself and it's commands.")
     async def start(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -32,16 +32,19 @@ class NextBus:
             return
 
         else:
-            # Introduce the bot and supply current self.bot commands.
+            # Introduce the bot and supply current bot commands.
             embed = discord.Embed(title="Commands", type='rich', colour=discord.Colour(
                 0x37980a))
             embed.set_author(
-                name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
             embed.add_field(name='/add', value='Make a notification.')
+            embed.add_field(name='/list', value='List current notifications.')
+            embed.add_field(
+                name='/d <id>', value='Delete the notification with the given ID (see all notifications with /list)')
 
             await self.bot.say("Let's get going!", embed=embed)
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, description='The bot will list all current notifications with corresponding IDs for use when calling /delete.')
     async def list(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -61,7 +64,7 @@ class NextBus:
                     0x37980a))
 
                 embed.set_author(
-                    name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                    name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
                 for t in zip(range(1, len(user_notifications) + 1), user_notifications):
                     # Convert time from UTC to local time.
@@ -83,7 +86,63 @@ class NextBus:
             else:
                 await self.bot.say('No notifications found.\nUse /add to add a notification.')
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, aliases=['d', 'D'], description='The bot will delete the specified notification.')
+    async def delete(self, ctx, option: int):
+        if not ctx.message.channel.is_private:
+            # Tell user to PM bot if called in public channel.
+            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+
+        elif ctx.message.author.id in self.in_commands:
+            return
+
+        else:
+            # Find all notifications that the user hsa created.
+            user_notifications = [t for t in self.db.posts.find(
+                {'user': ctx.message.author.id})]
+
+            # Delete the specified notification.
+            try:
+                notification = user_notifications[option - 1]
+
+                self.db.posts.remove(notification)
+            except IndexError:
+                await self.bot.say("Sorry, I couldn't find the specified notification.\nUse /list to see the IDs of all your current notifications")
+
+            # Tell the user that the operation succeeded.
+            embed = discord.Embed(title='Notification Deleted!', type='rich', colour=discord.Colour(
+                0x37980a))
+
+            embed.set_author(
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+
+            embed.add_field(
+                name='Line', value=notification['line']['title'], inline=False)
+            embed.add_field(
+                name='Stop', value=notification['stop']['title'], inline=False)
+
+            # Convert time from UTC to local time.
+            converted_time = notification['time'] + \
+                self.time_zones[notification
+                                ['system']['tag']] * 60
+
+            # Wrap around midnight.
+            if converted_time < 0:
+                converted_time += 1440
+
+            embed.add_field(name='Time', value=str(datetime.time(
+                divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+
+            await self.bot.say(content=None, embed=embed)
+
+    @delete.error
+    async def delete_handler(self, error, ctx):
+        if isinstance(error, commands.BadArgument):
+            await self.bot.say("The specified ID isn't a number")
+
+        if isinstance(error, commands.MissingRequiredArgument):
+            await self.bot.say('You forgot to include an ID for me to delete.\nUse /list to view all your notifications.')
+
+    @commands.command(pass_context=True, description='The bot will give you prompts to configure a notification.')
     async def add(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -140,7 +199,7 @@ class NextBus:
             embed = discord.Embed(title='Choose a system by number.', type='rich', colour=discord.Colour(
                 0x37980a))
             embed.set_author(
-                name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
             for t in zip(range(1, len(found_busses) + 1), [d['title'] for d in found_busses]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
 
@@ -195,6 +254,11 @@ class NextBus:
             await self.bot.say(
                 "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
 
+            # Allow users to call other commands.
+            self.in_commands.remove(ctx.message.author.id)
+
+            return
+
         elif len(found_lines) == 1:
             line = found_lines[0]
 
@@ -204,7 +268,7 @@ class NextBus:
                 0x37980a))
 
             embed.set_author(
-                name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
             for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
@@ -282,7 +346,7 @@ class NextBus:
                 0x37980a))
 
             embed.set_author(
-                name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
             for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
                 embed.add_field(
@@ -367,7 +431,7 @@ class NextBus:
                     0x37980a))
 
                 embed.set_author(
-                    name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                    name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
 
                 embed.add_field(name='Bus System',
                                 value=bus_system['title'], inline=False)
@@ -379,6 +443,9 @@ class NextBus:
                     int(time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
 
                 await self.bot.say("Notification set!", embed=embed)
+
+                # Allow users to call other commands.
+                self.in_commands.remove(ctx.message.author.id)
 
             else:
                 # Tell user that they provided a time that exceeds the amount of time in a day.
@@ -421,7 +488,7 @@ class NextBus:
                     embed = discord.Embed(
                         title='Notification', type='rich', colour=discord.Colour(0x37980a))
                     embed.set_author(
-                        name='nextbusself.bot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
+                        name='nextbusbot', icon_url="https://seattlestreetcar.org/wp-content/uploads/2017/08/NextBus-app-icon.png")
                     embed.add_field(
                         name='Line', value=notification['line']['title'])
                     embed.add_field(
@@ -436,7 +503,7 @@ class NextBus:
                 except KeyError:
                     # Tell user that there is an error.
                     await self.bot.send_message(discord.utils.get(self.bot.get_all_members(), id=notification['user']),
-                                           "Something went wrong and I wasn't able to notify you, I'll make sure to fix it soon!")
+                                                "Something went wrong and I wasn't able to notify you, I'll make sure to fix it soon!")
 
 
 def setup(bot):

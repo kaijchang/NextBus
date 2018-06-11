@@ -11,10 +11,16 @@ The bot might be on and off while I take it down to add features and test.
 The bot currently only takes commands in private messages.
 
 ### /start
-The bot will give you basic information on itself.
+The bot will give you basic information on itself and it's commands.
 
 ### /add
 The bot will give you prompts to configure a notification.
+
+### /list
+The bot will list all current notifications with corresponding IDs for use when calling /delete.
+
+### /d or /delete or /D
+The bot will delete the specified notification.
 
 # TODO
 
