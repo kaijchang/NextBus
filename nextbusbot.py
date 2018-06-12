@@ -2,7 +2,7 @@ from discord.ext import commands
 
 
 # Create the bot.
-bot = commands.Bot(command_prefix='bus ', description='Get Bus Notifications from NextBus!')
+bot = commands.Bot(command_prefix='!bus ', description='Get Bus Notifications from NextBus!')
 
 # Load the nextbus cog.
 extensions = ['cogs.nextbus']

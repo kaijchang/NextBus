@@ -8,26 +8,31 @@ The bot might be on and off while I take it down to add features and test.
 
 ## Commands
 
-The bot currently only takes commands in private messages. The bot's prefix is 'bus'.
+The bot currently only takes commands (except for !bus info) in private messages. The bot's prefix is '!bus '.
 
-###  bus start
+### !bus start
 The bot will give you basic information on itself and it's commands.
 
-### bus add
+### !bus add
 The bot will give you prompts to configure a notification.
 
-### bus list
+### !bus list
 The bot will list all current notifications with corresponding IDs for use when calling /delete.
 
-### bus delete|d|D <id>
+### !bus delete|d|D <id>
 The bot will delete the specified notification.
 
-### bus info
-The bot will provide the number of servers it is a part of and it's invite link.
+### !bus change|c|C <action> <id>
+The bot will give you prompts to edit the stop and line of the given notification.
+
+To edit time, the action parameter should be time or t
+
+To edit stop, the action parameter should be stop or s
+
+### !bus info
+The bot will provide the number of servers it is a part of and its invite link.
 
 # TODO
-
-- Let users edit and delete notifications
 
 - Ability to set notifications to weekdays only
 
