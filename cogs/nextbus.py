@@ -260,6 +260,29 @@ class NextBus:
 
                     return
 
+                # Provide the user with a summary of their notification.
+                embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
+                    0x37980a))
+
+                embed.add_field(name='Bus System',
+                                value=notification['system']['title'], inline=False)
+                embed.add_field(
+                    name='Line', value=notification['line']['title'], inline=False)
+                embed.add_field(
+                    name='Stop', value=notification['stop']['title'], inline=False)
+
+                # Convert time from UTC to local time.
+                converted_time = notification['time'] + \
+                    self.time_zones[notification
+                                    ['system']['tag']] * 60
+
+                # Wrap around midnight.
+                if converted_time < 0:
+                    converted_time += 1440
+
+                embed.add_field(name='Time', value=str(datetime.time(
+                    divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+
                 await self.bot.say("Notification updated!", embed=embed)
 
                 # Allow users to call other commands.
