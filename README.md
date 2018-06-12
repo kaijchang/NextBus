@@ -19,10 +19,10 @@ The bot will give you prompts to configure a notification.
 ### !bus list
 The bot will list all current notifications with corresponding IDs for use when calling /delete.
 
-### !bus delete|d|D <id>
+### !bus delete|d|D id
 The bot will delete the specified notification.
 
-### !bus change|c|C <action> <id>
+### !bus change|c|C action id
 The bot will give you prompts to edit the stop and line of the given notification.
 
 To edit time, the action parameter should be time or t
