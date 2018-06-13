@@ -22,7 +22,9 @@ class NextBus:
 
         self.in_commands = []
 
-    @commands.command(pass_context=True, description="The bot will give you basic information on itself and its commands.")
+    @commands.command(
+        pass_context=True,
+        description='The bot will give you basic information on itself and its commands.')
     async def start(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -33,32 +35,42 @@ class NextBus:
 
         else:
             # Introduce the bot and supply current bot commands.
-            embed = discord.Embed(title="Commands", type='rich', colour=discord.Colour(
-                0x37980a))
+            embed = discord.Embed(
+                title="Commands",
+                type='rich',
+                colour=discord.Colour(0x37980a))
             embed.add_field(name='!bus add', value='Make a notification.')
             embed.add_field(name='!bus list',
                             value='List current notifications.')
             embed.add_field(
-                name='!bus d <id>', value="Delete the notification with the given ID (see all notifications with '!bus list')")
+                name='!bus d <id>',
+                value="Delete the notification with the given ID (see all notifications with '!bus list')")
             embed.add_field(name='!bus info',
                             value='Bot statistics and link to add the bot.')
-            embed.add_field(name='!bus change <time / stop> <id>',
-                            value="Edit the time or stop of the specified notification (see all notifications with '!bus list')")
+            embed.add_field(
+                name='!bus change <time / stop> <id>',
+                value="Edit the time or stop of the specified notification (see all notifications with '!bus list')")
 
             await self.bot.say("Let's get going!", embed=embed)
 
     @commands.command(pass_context=True, description="Bot Information")
     async def info(self, ctx):
         embed = discord.Embed(
-            title="NextBusBot", type='rich', description="Get Bus Notifications from NextBus!", color=0x37980a)
+            title="NextBusBot",
+            type='rich',
+            description="Get Bus Notifications from NextBus!",
+            color=0x37980a)
 
         embed.add_field(name="Server Count", value=len(self.bot.servers))
         embed.add_field(
-            name="Invite Me", value="[Invite link](https://discordapp.com/oauth2/authorize?client_id=454489707360026626&scope=bot)")
+            name="Invite Me",
+            value="[Invite link](https://discordapp.com/oauth2/authorize?client_id=454489707360026626&scope=bot)")
 
         await self.bot.say(embed=embed)
 
-    @commands.command(pass_context=True, description="The bot will list all current notifications with corresponding IDs for use when calling '!bus delete' or '!bus change'.")
+    @commands.command(
+        pass_context=True,
+        description="The bot will list all current notifications with corresponding IDs for use when calling '!bus delete' or '!bus change'.")
     async def list(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -73,11 +85,19 @@ class NextBus:
                 {'user': ctx.message.author.id})]
 
             if len(user_notifications) > 0:
-                # Provide user with matching notifications and ask them to choose one.
-                embed = discord.Embed(title="Current Notifcations", type='rich', colour=discord.Colour(
-                    0x37980a))
+                # Provide user with matching notifications and ask them to
+                # choose one.
+                embed = discord.Embed(
+                    title="Current Notifcations",
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
 
-                for t in zip(range(1, len(user_notifications) + 1), user_notifications):
+                for t in zip(
+                        range(
+                            1,
+                            len(user_notifications) +
+                            1),
+                        user_notifications):
                     # Convert time from UTC to local time.
                     converted_time = t[1]['time'] + \
                         self.time_zones[t[1]['system']['tag']] * 60
@@ -86,8 +106,11 @@ class NextBus:
                     if converted_time < 0:
                         converted_time += 1440
 
-                    formatted_time = str(datetime.time(divmod(converted_time, 60)[
-                                         0], divmod(converted_time, 60)[1]))
+                    formatted_time = str(
+                        datetime.time(
+                            divmod(
+                                converted_time, 60)[0], divmod(
+                                converted_time, 60)[1]))
 
                     embed.add_field(name=t[0], value='{} at {}'.format(
                         t[1]['stop']['title'], formatted_time), inline=False)
@@ -97,7 +120,12 @@ class NextBus:
             else:
                 await self.bot.say("No notifications found.\nUse '!bus add' to add a notification.")
 
-    @commands.command(pass_context=True, aliases=['d', 'D'], description='The bot will delete the specified notification.')
+    @commands.command(
+        pass_context=True,
+        aliases=[
+            'd',
+            'D'],
+        description='The bot will delete the specified notification.')
     async def delete(self, ctx, ID: int):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -122,8 +150,10 @@ class NextBus:
                 return
 
             # Tell the user that the operation succeeded.
-            embed = discord.Embed(title='Notification Deleted!', type='rich', colour=discord.Colour(
-                0x37980a))
+            embed = discord.Embed(
+                title='Notification Deleted!',
+                type='rich',
+                colour=discord.Colour(0x37980a))
 
             embed.add_field(
                 name='Line', value=notification['line']['title'], inline=False)
@@ -139,8 +169,12 @@ class NextBus:
             if converted_time < 0:
                 converted_time += 1440
 
-            embed.add_field(name='Time', value=str(datetime.time(
-                divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+            embed.add_field(
+                name='Time', value=str(
+                    datetime.time(
+                        divmod(
+                            converted_time, 60)[0], divmod(
+                            converted_time, 60)[1])), inline=False)
 
             await self.bot.say(embed=embed)
 
@@ -152,7 +186,12 @@ class NextBus:
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot.say("You forgot to include an ID for me to delete.\nUse '!bus list' to view all your notifications.")
 
-    @commands.command(pass_context=True, description='The bot will prompt you to modify the specified notification.', aliases=['c', 'C'])
+    @commands.command(
+        pass_context=True,
+        description='The bot will prompt you to modify the specified notification.',
+        aliases=[
+            'c',
+            'C'])
     async def change(self, ctx, action, ID: int):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -170,14 +209,22 @@ class NextBus:
             # Find the specified notification
             try:
                 notification = user_notifications[ID - 1]
-                embed = discord.Embed(title='Notification Found!', type='rich', colour=discord.Colour(
-                    0x37980a))
+                embed = discord.Embed(
+                    title='Notification Found!',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
                 embed.add_field(
-                    name='Bus System', value=notification['system']['title'], inline=False)
+                    name='Bus System',
+                    value=notification['system']['title'],
+                    inline=False)
                 embed.add_field(
-                    name='Line', value=notification['line']['title'], inline=False)
+                    name='Line',
+                    value=notification['line']['title'],
+                    inline=False)
                 embed.add_field(
-                    name='Stop', value=notification['stop']['title'], inline=False)
+                    name='Stop',
+                    value=notification['stop']['title'],
+                    inline=False)
 
                 # Convert time from UTC to local time.
                 converted_time = notification['time'] + \
@@ -188,8 +235,12 @@ class NextBus:
                 if converted_time < 0:
                     converted_time += 1440
 
-                embed.add_field(name='Time', value=str(datetime.time(
-                    divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+                embed.add_field(
+                    name='Time', value=str(
+                        datetime.time(
+                            divmod(
+                                converted_time, 60)[0], divmod(
+                                converted_time, 60)[1])), inline=False)
 
                 await self.bot.say('Notification Found!', embed=embed)
 
@@ -206,8 +257,10 @@ class NextBus:
 
             if action.lower() in ['time', 't']:
                 # The bot asks for a time to notify the user.
-                embed = discord.Embed(title='What should I change the notification time to?', type='rich', colour=discord.Colour(
-                    0x37980a))
+                embed = discord.Embed(
+                    title='What should I change the notification time to?',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
 
                 embed.add_field(name='Time Examples',
                                 value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
@@ -227,10 +280,14 @@ class NextBus:
                     return
 
                 try:
-                    # Check if the user provides a time that is over the amount of time in a day.
-                    if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) < 1440:
-                        # Check if the time, when converted to UTC, needs to wrap back around midnight.
-                        if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[notification['system']['tag']] * 60 > 1440:
+                    # Check if the user provides a time that is over the amount
+                    # of time in a day.
+                    if int(time_choice.content.split()[
+                           0]) * 60 + int(time_choice.content.split()[1]) < 1440:
+                        # Check if the time, when converted to UTC, needs to
+                        # wrap back around midnight.
+                        if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[
+                                1]) - self.time_zones[notification['system']['tag']] * 60 > 1440:
                             # Wrap back around midnight.
                             notification['time'] = int(time_choice.content.split()[0]) * 60 + int(
                                 time_choice.content.split()[1]) - self.time_zones[notification['system']['tag']] * 60 - 1440
@@ -243,7 +300,8 @@ class NextBus:
                             {'_id': notification['_id']}, notification)
 
                     else:
-                        # Tell user that they provided a time that exceeds the amount of time in a day.
+                        # Tell user that they provided a time that exceeds the
+                        # amount of time in a day.
                         await self.bot.say("I don't think I'll be able to contact you at that time.")
 
                         # Allow users to call other commands.
@@ -261,15 +319,23 @@ class NextBus:
                     return
 
                 # Provide the user with a summary of their notification.
-                embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
-                    0x37980a))
+                embed = discord.Embed(
+                    title='Notification Info',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
 
-                embed.add_field(name='Bus System',
-                                value=notification['system']['title'], inline=False)
                 embed.add_field(
-                    name='Line', value=notification['line']['title'], inline=False)
+                    name='Bus System',
+                    value=notification['system']['title'],
+                    inline=False)
                 embed.add_field(
-                    name='Stop', value=notification['stop']['title'], inline=False)
+                    name='Line',
+                    value=notification['line']['title'],
+                    inline=False)
+                embed.add_field(
+                    name='Stop',
+                    value=notification['stop']['title'],
+                    inline=False)
 
                 # Convert time from UTC to local time.
                 converted_time = notification['time'] + \
@@ -280,8 +346,12 @@ class NextBus:
                 if converted_time < 0:
                     converted_time += 1440
 
-                embed.add_field(name='Time', value=str(datetime.time(
-                    divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+                embed.add_field(
+                    name='Time', value=str(
+                        datetime.time(
+                            divmod(
+                                converted_time, 60)[0], divmod(
+                                converted_time, 60)[1])), inline=False)
 
                 await self.bot.say("Notification updated!", embed=embed)
 
@@ -326,11 +396,15 @@ class NextBus:
                     line = found_lines[0]
 
                 else:
-                    # Provide user with the matching lines and ask them to choose one.
-                    embed = discord.Embed(title='Choose a line by number.', type='rich', colour=discord.Colour(
-                        0x37980a))
+                    # Provide user with the matching lines and ask them to
+                    # choose one.
+                    embed = discord.Embed(
+                        title='Choose a line by number.',
+                        type='rich',
+                        colour=discord.Colour(0x37980a))
 
-                    for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
+                    for t in zip(range(1, len(found_lines) + 1),
+                                 [d['title'] for d in found_lines]):
                         embed.add_field(name=t[0], value=t[1], inline=False)
 
                     await self.bot.say('I found {} matching lines(s).'.format(len(found_lines)), embed=embed)
@@ -376,7 +450,8 @@ class NextBus:
 
                     return
 
-                # Get all routes for the given bus and line from the NextBus API.
+                # Get all routes for the given bus and line from the NextBus
+                # API.
                 async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
                     route_data = await response.json()
 
@@ -389,8 +464,9 @@ class NextBus:
                     stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
 
                 # Sort out all directional data for the matching stops.
-                directions = [direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                    stop['tag'] for stop in direction['stop']]]
+                directions = [
+                    direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+                        stop['tag'] for stop in direction['stop']]]
 
                 if not found_stops:
                     # Tell user that no matching stops were found.
@@ -401,11 +477,15 @@ class NextBus:
                     stop = found_stops[0]
 
                 else:
-                    # Provide user with the matching lines and ask them to choose one.
-                    embed = discord.Embed(title='Choose a stop by number.', type='rich', colour=discord.Colour(
-                        0x37980a))
+                    # Provide user with the matching lines and ask them to
+                    # choose one.
+                    embed = discord.Embed(
+                        title='Choose a stop by number.',
+                        type='rich',
+                        colour=discord.Colour(0x37980a))
 
-                    for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
+                    for t in zip(range(1, len(found_stops) + 1),
+                                 [d['title'] for d in found_stops], directions):
                         embed.add_field(
                             name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
 
@@ -444,15 +524,23 @@ class NextBus:
                     {'_id': notification['_id']}, notification)
 
                 # Provide the user with a summary of their notification.
-                embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
-                    0x37980a))
+                embed = discord.Embed(
+                    title='Notification Info',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
 
-                embed.add_field(name='Bus System',
-                                value=notification['system']['title'], inline=False)
                 embed.add_field(
-                    name='Line', value=notification['line']['title'], inline=False)
+                    name='Bus System',
+                    value=notification['system']['title'],
+                    inline=False)
                 embed.add_field(
-                    name='Stop', value=notification['stop']['title'], inline=False)
+                    name='Line',
+                    value=notification['line']['title'],
+                    inline=False)
+                embed.add_field(
+                    name='Stop',
+                    value=notification['stop']['title'],
+                    inline=False)
 
                 # Convert time from UTC to local time.
                 converted_time = notification['time'] + \
@@ -463,8 +551,12 @@ class NextBus:
                 if converted_time < 0:
                     converted_time += 1440
 
-                embed.add_field(name='Time', value=str(datetime.time(
-                    divmod(converted_time, 60)[0], divmod(converted_time, 60)[1])), inline=False)
+                embed.add_field(
+                    name='Time', value=str(
+                        datetime.time(
+                            divmod(
+                                converted_time, 60)[0], divmod(
+                                converted_time, 60)[1])), inline=False)
 
                 await self.bot.say('Notification updated!', embed=embed)
 
@@ -488,7 +580,9 @@ class NextBus:
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot.say("You forgot to include an ID or an action for me to delete.\nUse '!bus list' to view all your notifications or use '!bus start' to get all available commands.")
 
-    @commands.command(pass_context=True, description='The bot will give you prompts to configure a notification.')
+    @commands.command(
+        pass_context=True,
+        description='The bot will give you prompts to configure a notification.')
     async def add(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -521,7 +615,8 @@ class NextBus:
             bus_list = await response.json()
 
         for bus in bus_list['agency']:
-            # Check to see if any of the bus system's provided identifiers match with user input.
+            # Check to see if any of the bus system's provided identifiers
+            # match with user input.
             for attribute in bus:
                 if system_choice.content.lower() in bus[attribute].lower():
                     found_busses.append(bus)
@@ -541,11 +636,15 @@ class NextBus:
             bus_system = found_busses[0]
 
         else:
-            # Provide user with the matching bus systems and ask them to choose one.
-            embed = discord.Embed(title='Choose a system by number.', type='rich', colour=discord.Colour(
-                0x37980a))
+            # Provide user with the matching bus systems and ask them to choose
+            # one.
+            embed = discord.Embed(
+                title='Choose a system by number.',
+                type='rich',
+                colour=discord.Colour(0x37980a))
 
-            for t in zip(range(1, len(found_busses) + 1), [d['title'] for d in found_busses]):
+            for t in zip(range(1, len(found_busses) + 1),
+                         [d['title'] for d in found_busses]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
 
             await self.bot.say('I found {} matching bus system(s).'.format(len(found_busses)), embed=embed)
@@ -609,10 +708,13 @@ class NextBus:
 
         else:
             # Provide user with the matching lines and ask them to choose one.
-            embed = discord.Embed(title='Choose a line by number.', type='rich', colour=discord.Colour(
-                0x37980a))
+            embed = discord.Embed(
+                title='Choose a line by number.',
+                type='rich',
+                colour=discord.Colour(0x37980a))
 
-            for t in zip(range(1, len(found_lines) + 1), [d['title'] for d in found_lines]):
+            for t in zip(range(1, len(found_lines) + 1),
+                         [d['title'] for d in found_lines]):
                 embed.add_field(name=t[0], value=t[1], inline=False)
 
             await self.bot.say('I found {} matching lines(s).'.format(len(found_lines)), embed=embed)
@@ -671,8 +773,9 @@ class NextBus:
             stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
 
         # Sort out all directional data for the matching stops.
-        directions = [direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-            stop['tag'] for stop in direction['stop']]]
+        directions = [
+            direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+                stop['tag'] for stop in direction['stop']]]
 
         if not found_stops:
             # Tell user that no matching stops were found.
@@ -684,10 +787,13 @@ class NextBus:
 
         else:
             # Provide user with the matching lines and ask them to choose one.
-            embed = discord.Embed(title='Choose a stop by number.', type='rich', colour=discord.Colour(
-                0x37980a))
+            embed = discord.Embed(
+                title='Choose a stop by number.',
+                type='rich',
+                colour=discord.Colour(0x37980a))
 
-            for t in zip(range(1, len(found_stops) + 1), [d['title'] for d in found_stops], directions):
+            for t in zip(range(1, len(found_stops) + 1),
+                         [d['title'] for d in found_stops], directions):
                 embed.add_field(
                     name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
 
@@ -720,8 +826,10 @@ class NextBus:
         await self.bot.say('You selected {}!'.format(stop['title']))
 
         # The bot asks for a time to notify the user.
-        embed = discord.Embed(title='When should I notify you?', type='rich', colour=discord.Colour(
-            0x37980a))
+        embed = discord.Embed(
+            title='When should I notify you?',
+            type='rich',
+            colour=discord.Colour(0x37980a))
 
         embed.add_field(name='Time Examples',
                         value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
@@ -741,33 +849,29 @@ class NextBus:
             return
 
         try:
-            # Check if the user provides a time that is over the amount of time in a day.
-            if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) < 1440:
-                # Check if the time, when converted to UTC, needs to wrap back around midnight.
-                if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60 > 1440:
+            # Check if the user provides a time that is over the amount of time
+            # in a day.
+            if int(time_choice.content.split()[
+                   0]) * 60 + int(time_choice.content.split()[1]) < 1440:
+                # Check if the time, when converted to UTC, needs to wrap back
+                # around midnight.
+                if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[
+                        1]) - self.time_zones[bus_system['tag']] * 60 > 1440:
                     # Wrap back around midnight.
-                    post = {
-                        'user': ctx.message.author.id,
-                        'system': bus_system,
-                        'stop': stop,
-                        'line': line,
-                        'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60 - 1440
-                    }
+                    post = {'user': ctx.message.author.id, 'system': bus_system, 'stop': stop, 'line': line, 'time': int(
+                        time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60 - 1440}
 
                 else:
-                    post = {
-                        'user': ctx.message.author.id,
-                        'system': bus_system,
-                        'stop': stop,
-                        'line': line,
-                        'time': int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60
-                    }
+                    post = {'user': ctx.message.author.id, 'system': bus_system, 'stop': stop, 'line': line, 'time': int(
+                        time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60}
                 # Insert notification into database.
                 self.db.posts.insert_one(post)
 
                 # Provide the user with a summary of their notification.
-                embed = discord.Embed(title='Notification Info', type='rich', colour=discord.Colour(
-                    0x37980a))
+                embed = discord.Embed(
+                    title='Notification Info',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
 
                 embed.add_field(name='Bus System',
                                 value=bus_system['title'], inline=False)
@@ -775,8 +879,8 @@ class NextBus:
                     name='Line', value=line['title'], inline=False)
                 embed.add_field(
                     name='Stop', value=stop['title'], inline=False)
-                embed.add_field(name='Time', value=str(datetime.time(
-                    int(time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
+                embed.add_field(name='Time', value=str(datetime.time(int(
+                    time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
 
                 await self.bot.say("Notification set!", embed=embed)
 
@@ -784,7 +888,8 @@ class NextBus:
                 self.in_commands.remove(ctx.message.author.id)
 
             else:
-                # Tell user that they provided a time that exceeds the amount of time in a day.
+                # Tell user that they provided a time that exceeds the amount
+                # of time in a day.
                 await self.bot.say("I don't think I'll be able to contact you at that time.")
 
                 # Allow users to call other commands.
@@ -811,7 +916,13 @@ class NextBus:
 
             # Convert the time into minutes.
             now_in_minutes = round(
-                (now - now.replace(hour=0, minute=0, second=0, microsecond=0)).total_seconds() / 60)
+                (now -
+                 now.replace(
+                     hour=0,
+                     minute=0,
+                     second=0,
+                     microsecond=0)).total_seconds() /
+                60)
 
             # Find all notifications set for this minute.
             for notification in self.db.posts.find({'time': now_in_minutes}):
@@ -822,15 +933,16 @@ class NextBus:
 
                     # Notify the user with the predicted bus times.
                     embed = discord.Embed(
-                        title='NextBus Notification', type='rich', colour=discord.Colour(0x37980a))
+                        title='NextBus Notification',
+                        type='rich',
+                        colour=discord.Colour(0x37980a))
 
                     embed.add_field(
                         name='Line', value=notification['line']['title'])
                     embed.add_field(
                         name='Stop', value=notification['stop']['title'])
-                    embed.add_field(
-                        name='Bus Times', value='\n\n'.join(
-                            ["Bus coming in {} Minutes".format(prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
+                    embed.add_field(name='Bus Times', value='\n\n'.join(["Bus coming in {} Minutes".format(
+                        prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
 
                     await self.bot.send_message(discord.utils.get(
                         self.bot.get_all_members(), id=notification['user']), embed=embed)
