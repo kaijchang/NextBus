@@ -15,7 +15,7 @@ for extension in extensions:
 
 @bot.event
 async def on_member_join(member):
-    await member.send("Welcome!\nI'm nextbusbot, you can use me to schedule bus notifications.\nUse !bus start to see my available commands.")
+    await bot.send_message(member, "Welcome!\nI'm nextbusbot, you can use me to schedule bus notifications.\nUse !bus start to see my available commands.")
 
 
 @bot.event
