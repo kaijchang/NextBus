@@ -948,9 +948,10 @@ class NextBus:
                         self.bot.get_all_members(), id=notification['user']), embed=embed)
 
                 except KeyError:
-                    # Tell user that there is an error.
+                    # Tell user that there were no predictions.
                     await self.bot.send_message(discord.utils.get(self.bot.get_all_members(), id=notification['user']),
-                                                "Something went wrong and I wasn't able to notify you, I'll make sure to fix it soon!")
+                                                "I couldn't find any predictions, but I found these messages:\n" +
+                                                '\n'.join([m['text'] for m in time_predictions['predictions']['message']]))
 
 
 def setup(bot):
