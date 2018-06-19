@@ -19,6 +19,7 @@ class NextBus:
         self.db = self.client.next_bus_db
 
         self.bot = bot
+        self.bot.loop.create_task(self.notifier())
 
         self.in_commands = []
 
@@ -375,8 +376,9 @@ class NextBus:
                     return
 
                 # Get all lines for the given bus system from the NextBus API.
-                async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(notification['system']['tag'])) as response:
-                    lines = await response.json()
+                async with aiohttp.ClientSession() as session:
+                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(notification['system']['tag'])) as response:
+                        lines = await response.json()
 
                 # Sort out all the matching lines.
                 found_lines = [line for line in lines['route']
@@ -452,8 +454,9 @@ class NextBus:
 
                 # Get all routes for the given bus and line from the NextBus
                 # API.
-                async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
-                    route_data = await response.json()
+                async with aiohttp.ClientSession() as session:
+                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
+                        route_data = await response.json()
 
                 # Separate stop data and directional (in/outbound) data
                 stops = route_data['route']['stop']
@@ -611,8 +614,10 @@ class NextBus:
 
         found_busses = []
 
-        async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList') as response:
-            bus_list = await response.json()
+        # Get all bus systems from the NextBus API.
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList') as response:
+                bus_list = await response.json()
 
         for bus in bus_list['agency']:
             # Check to see if any of the bus system's provided identifiers
@@ -686,8 +691,9 @@ class NextBus:
             return
 
         # Get all lines for the given bus system from the NextBus API.
-        async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
-            lines = await response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
+                lines = await response.json()
 
         # Sort out all the matching lines.
         found_lines = [line for line in lines['route']
@@ -761,8 +767,9 @@ class NextBus:
             return
 
         # Get all routes for the given bus and line from the NextBus API.
-        async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
-            route_data = await response.json()
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
+                route_data = await response.json()
 
         # Separate stop data and directional (in/outbound) data
         stops = route_data['route']['stop']
@@ -928,8 +935,9 @@ class NextBus:
             for notification in self.db.posts.find({'time': now_in_minutes}):
                 try:
                     # Get the time_predictions from the NextBus API.
-                    async with aiohttp.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])) as response:
-                        time_predictions = await response.json()
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])) as response:
+                            time_predictions = await response.json()
 
                     # Notify the user with the predicted bus times.
                     embed = discord.Embed(
@@ -955,6 +963,4 @@ class NextBus:
 
 
 def setup(bot):
-    cogged = NextBus(bot)
-    cogged.bot.loop.create_task(cogged.notifier())
-    bot.add_cog(cogged)
+    bot.add_cog(NextBus(bot))

@@ -1,4 +1,5 @@
 from discord.ext import commands
+import os
 
 
 # Create the bot.
@@ -28,4 +29,4 @@ async def on_ready():
 
 
 # Start the bot.
-bot.run('TOKEN')
+bot.run(os.environ.get('TOKEN'))

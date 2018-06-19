@@ -14,7 +14,7 @@ To add the notification feature to a pre-existing bot, you need to connect to a 
 Here's an [example](https://gist.github.com/leovoel/46cd89ed6a8f41fd09c5) of using cogs.
 
 If you want to run the bot with just the notification feature, you can clone or [download](https://github.com/kajchang/next-bus-bot/archive/master.zip) this code. You will also need to connect to a [MongoDB](https://www.mongodb.com/).
-Then, run replace the ```'TOKEN'``` placeholder in ```nextbusbot.py``` with a Discord bot token ([guide](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token)) and run the program.
+Then, create the ```TOKEN``` environment variable with a Discord bot token ([guide](https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token)) and run ```nextbusbot.py```.
 
 # Commands
 
@@ -51,6 +51,6 @@ The bot will provide the number of servers it is a part of and its invite link.
 
 - Ability to set notifications to weekdays only
 
-- Add some general features
+- Routes?
 
 - Possibly add notification option to notify when bus is X minutes away starting at particular time
