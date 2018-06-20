@@ -217,9 +217,10 @@ class NextBus:
 
                 await self.bot.say(embed=embed)
 
-                time_choice_1 = await self.bot.wait_for_message(
+                time_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
-                if not time_choice_1:
+
+                if not time_choice:
                     # Tell user when bot.wait_for_message times out.
                     await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -229,28 +230,7 @@ class NextBus:
                     return
 
                 try:
-                    # Check if the user provides a time that is over the amount of time
-                    # in a day.
-                    if ':' in time_choice_1.content:
-                        if 'PM' in time_choice_1.content:
-                            time_1 = int(time_choice_1.content.replace('PM', '').split(
-                                ':')[0]) * 60 + int(time_choice_1.content.replace('PM', '').split(':')[1]) + 720
-                        elif 'AM' in time_choice_1.content:
-                            time_1 = int(time_choice_1.content.replace('AM', '').split(
-                                ':')[0]) * 60 + int(time_choice_1.content.replace('AM', '').split(':')[1])
-                        else:
-                            time_1 = int(time_choice_1.content.split(
-                                ':')[0]) * 60 + int(time_choice_1.content.split(':')[1])
-                    else:
-                        if 'PM' in time_choice_1.content:
-                            time_1 = int(time_choice_1.content.replace('PM', '').split()[
-                                0]) * 60 + int(time_choice_1.content.replace('PM', '').split()[1]) + 720
-                        elif 'AM' in time_choice_1.content:
-                            time_1 = int(time_choice_1.content.replace('AM', '').split()[
-                                0]) * 60 + int(time_choice_1.content.replace('AM', '').split()[1])
-                        else:
-                            time_1 = int(time_choice_1.content.split()[
-                                0]) * 60 + int(time_choice_1.content.split()[1])
+                    time_1 = self.parseUserTime(time_choice.content)
 
                     # Check if the time, when converted to UTC, needs to wrap back
                     # around midnight.
@@ -284,10 +264,10 @@ class NextBus:
 
                 await self.bot.say(embed=embed)
 
-                time_choice_2 = await self.bot.wait_for_message(
+                time_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
 
-                if not time_choice_2:
+                if not time_choice:
                     # Tell user when bot.wait_for_message times out.
                     await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -297,28 +277,7 @@ class NextBus:
                     return
 
                 try:
-                    # Check if the user provides a time that is over the amount of time
-                    # in a day.
-                    if ':' in time_choice_2.content:
-                        if 'PM' in time_choice_2.content:
-                            time_2 = int(time_choice_2.content.replace('PM', '').split(
-                                ':')[0]) * 60 + int(time_choice_2.content.replace('PM', '').split(':')[1]) + 720
-                        elif 'AM' in time_choice_2.content:
-                            time_2 = int(time_choice_2.content.replace('AM', '').split(
-                                ':')[0]) * 60 + int(time_choice_2.content.replace('AM', '').split(':')[1])
-                        else:
-                            time_2 = int(time_choice_2.content.split(
-                                ':')[0]) * 60 + int(time_choice_2.content.split(':')[1])
-                    else:
-                        if 'PM' in time_choice_2.content:
-                            time_2 = int(time_choice_2.content.replace('PM', '').split()[
-                                0]) * 60 + int(time_choice_2.content.replace('PM', '').split()[1]) + 720
-                        elif 'AM' in time_choice_2.content:
-                            time_2 = int(time_choice_2.content.replace('AM', '').split()[
-                                0]) * 60 + int(time_choice_2.content.replace('AM', '').split()[1])
-                        else:
-                            time_2 = int(time_choice_2.content.split()[
-                                0]) * 60 + int(time_choice_2.content.split()[1])
+                    time_2 = self.parseUserTime(time_choice)
 
                     # Check if the time, when converted to UTC, needs to wrap back
                     # around midnight.
@@ -332,7 +291,7 @@ class NextBus:
                         time_2 = time_2 - \
                             self.time_zones[notification['system']['tag']] * 60
 
-                except:
+                except Exception:
                     # Tell user that there is an error.
                     await self.bot.say("I couldn't understand your time format.")
 
@@ -635,85 +594,93 @@ class NextBus:
         if ctx.message.author.id in self.in_commands:
             return
 
-        # The bot asks the user for a bus system.
-        await self.bot.say("I've got this!\nWhich bus system do you use?")
+        if not [a for a in self.db.posts.find({'user': ctx.message.author.id})]:
+            # The bot asks the user for a bus system.
+            await self.bot.say("I've got this!\nWhich bus system do you use?")
 
-        # Don't allow user to use any other commands while in this one.
-        self.in_commands.append(ctx.message.author.id)
+            # Don't allow user to use any other commands while in this one.
+            self.in_commands.append(ctx.message.author.id)
 
-        system_choice = await self.bot.wait_for_message(
-            author=ctx.message.author, timeout=300)
-
-        if not system_choice:
-            # Tell user when bot.wait_for_message times out.
-            await self.bot.say("I didn't pick up a response.")
-
-            # Allow users to call other commands.
-            self.in_commands.remove(ctx.message.author.id)
-            return
-
-        found_busses = []
-
-        # Get all bus systems from the NextBus API.
-        async with aiohttp.ClientSession() as session:
-            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList') as response:
-                bus_list = await response.json()
-
-        for bus in bus_list['agency']:
-            # Check to see if any of the bus system's provided identifiers
-            # match with user input.
-            for attribute in bus:
-                if system_choice.content.lower() in bus[attribute].lower():
-                    found_busses.append(bus)
-                    break
-
-        if not found_busses:
-            # Tell user that no matching bus systems were found.
-            await self.bot.say(
-                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
-
-            # Allow users to call other commands.
-            self.in_commands.remove(ctx.message.author.id)
-
-            return
-
-        elif len(found_busses) == 1:
-            bus_system = found_busses[0]
-
-        else:
-            # Provide user with the matching bus systems and ask them to choose
-            # one.
-            embed = discord.Embed(
-                title='Choose a system by number.',
-                type='rich',
-                colour=discord.Colour(0x37980a))
-
-            for t in zip(range(1, len(found_busses) + 1),
-                         [d['title'] for d in found_busses]):
-                embed.add_field(name=t[0], value=t[1], inline=False)
-
-            await self.bot.say('I found {} matching bus system(s).'.format(len(found_busses)), embed=embed)
-
-            choice = await self.bot.wait_for_message(
+            system_choice = await self.bot.wait_for_message(
                 author=ctx.message.author, timeout=300)
 
-            if not choice.content:
+            if not system_choice:
                 # Tell user when bot.wait_for_message times out.
-                await self.bot.say("Sorry, I didn't pick up a response.")
+                await self.bot.say("I didn't pick up a response.")
 
-            try:
-                bus_system = found_busses[int(choice.content) - 1]
+                # Allow users to call other commands.
+                self.in_commands.remove(ctx.message.author.id)
+                return
 
-            except IndexError:
-                # Tell the user if they provide an invalid index.
-                await self.bot.say("I don't think that's a valid choice.")
+            found_busses = []
+
+            # Get all bus systems from the NextBus API.
+            async with aiohttp.ClientSession() as session:
+                async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=agencyList') as response:
+                    bus_list = await response.json()
+
+            for bus in bus_list['agency']:
+                # Check to see if any of the bus system's provided identifiers
+                # match with user input.
+                for attribute in bus:
+                    if system_choice.content.lower() in bus[attribute].lower():
+                        found_busses.append(bus)
+                        break
+
+            if not found_busses:
+                # Tell user that no matching bus systems were found.
+                await self.bot.say(
+                    "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
 
                 return
 
-        await self.bot.say('You selected {}!'.format(bus_system['title']))
+            elif len(found_busses) == 1:
+                bus_system = found_busses[0]
+
+            else:
+                # Provide user with the matching bus systems and ask them to choose
+                # one.
+                embed = discord.Embed(
+                    title='Choose a system by number.',
+                    type='rich',
+                    colour=discord.Colour(0x37980a))
+
+                for t in zip(range(1, len(found_busses) + 1),
+                             [d['title'] for d in found_busses]):
+                    embed.add_field(name=t[0], value=t[1], inline=False)
+
+                await self.bot.say('I found {} matching bus system(s).'.format(len(found_busses)), embed=embed)
+
+                choice = await self.bot.wait_for_message(
+                    author=ctx.message.author, timeout=300)
+
+                if not choice.content:
+                    # Tell user when bot.wait_for_message times out.
+                    await self.bot.say("Sorry, I didn't pick up a response.")
+
+                try:
+                    bus_system = found_busses[int(choice.content) - 1]
+
+                except IndexError:
+                    # Tell the user if they provide an invalid index.
+                    await self.bot.say("I don't think that's a valid choice.")
+
+                    # Allow users to call other commands.
+                    self.in_commands.remove(ctx.message.author.id)
+
+                    return
+
+            await self.bot.say('You selected {}!'.format(bus_system['title']))
+
+        else:
+            bus_system = [a for a in self.db.posts.find(
+                {'user': ctx.message.author.id})][0]['system']
+
+            await self.bot.say('Automatically selecting {}.'.format(
+                bus_system['title']))
 
         # The bot asks the user for a route/line.
         await self.bot.say('Which route/ line do want to set a notification for?')
@@ -964,10 +931,10 @@ class NextBus:
 
         await self.bot.say(embed=embed)
 
-        time_choice_1 = await self.bot.wait_for_message(
+        time_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
-        if not time_choice_1:
+        if not time_choice:
             # Tell user when bot.wait_for_message times out.
             await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -977,28 +944,7 @@ class NextBus:
             return
 
         try:
-            # Check if the user provides a time that is over the amount of time
-            # in a day.
-            if ':' in time_choice_1.content:
-                if 'PM' in time_choice_1.content:
-                    time_1 = int(time_choice_1.content.replace('PM', '').split(
-                        ':')[0]) * 60 + int(time_choice_1.content.replace('PM', '').split(':')[1]) + 720
-                elif 'AM' in time_choice_1.content:
-                    time_1 = int(time_choice_1.content.replace('AM', '').split(
-                        ':')[0]) * 60 + int(time_choice_1.content.replace('AM', '').split(':')[1])
-                else:
-                    time_1 = int(time_choice_1.content.split(
-                        ':')[0]) * 60 + int(time_choice_1.content.split(':')[1])
-            else:
-                if 'PM' in time_choice_1.content:
-                    time_1 = int(time_choice_1.content.replace('PM', '').split()[
-                        0]) * 60 + int(time_choice_1.content.replace('PM', '').split()[1]) + 720
-                elif 'AM' in time_choice_1.content:
-                    time_1 = int(time_choice_1.content.replace('AM', '').split()[
-                        0]) * 60 + int(time_choice_1.content.replace('AM', '').split()[1])
-                else:
-                    time_1 = int(time_choice_1.content.split()[
-                        0]) * 60 + int(time_choice_1.content.split()[1])
+            time_1 = self.parseUserTime(time_choice.content)
 
             # Check if the time, when converted to UTC, needs to wrap back
             # around midnight.
@@ -1031,10 +977,10 @@ class NextBus:
 
         await self.bot.say(embed=embed)
 
-        time_choice_2 = await self.bot.wait_for_message(
+        time_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
-        if not time_choice_2:
+        if not time_choice:
             # Tell user when bot.wait_for_message times out.
             await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -1044,28 +990,7 @@ class NextBus:
             return
 
         try:
-            # Check if the user provides a time that is over the amount of time
-            # in a day.
-            if ':' in time_choice_2.content:
-                if 'PM' in time_choice_2.content:
-                    time_2 = int(time_choice_2.content.replace('PM', '').split(
-                        ':')[0]) * 60 + int(time_choice_2.content.replace('PM', '').split(':')[1]) + 720
-                elif 'AM' in time_choice_2.content:
-                    time_2 = int(time_choice_2.content.replace('AM', '').split(
-                        ':')[0]) * 60 + int(time_choice_2.content.replace('AM', '').split(':')[1])
-                else:
-                    time_2 = int(time_choice_2.content.split(
-                        ':')[0]) * 60 + int(time_choice_2.content.split(':')[1])
-            else:
-                if 'PM' in time_choice_2.content:
-                    time_2 = int(time_choice_2.content.replace('PM', '').split()[
-                        0]) * 60 + int(time_choice_2.content.replace('PM', '').split()[1]) + 720
-                elif 'AM' in time_choice_2.content:
-                    time_2 = int(time_choice_2.content.replace('AM', '').split()[
-                        0]) * 60 + int(time_choice_2.content.replace('AM', '').split()[1])
-                else:
-                    time_2 = int(time_choice_2.content.split()[
-                        0]) * 60 + int(time_choice_2.content.split()[1])
+            time_2 = parseUserTime(time_choice.content)
 
             # Check if the time, when converted to UTC, needs to wrap back
             # around midnight.
@@ -1172,7 +1097,6 @@ class NextBus:
                                                 '\n'.join([m['text'] for m in time_predictions['predictions']['message']]).format(notification['stop2']['title']))
 
     def notification_embed(self, title, notification):
-        # Tell the user that the operation succeeded.
         embed = discord.Embed(
             title=title,
             type='rich',
@@ -1212,6 +1136,30 @@ class NextBus:
                         converted_time, 60)[1]))), inline=False)
 
         return embed
+
+    def parseUserTime(self, userinput):
+        if ':' in userinput:
+            if 'PM' in userinput:
+                time = int(userinput.replace('PM', '').split(
+                    ':')[0]) * 60 + int(userinput.replace('PM', '').split(':')[1]) + 720
+            elif 'AM' in userinput:
+                time = int(userinput.replace('AM', '').split(
+                    ':')[0]) * 60 + int(userinput.replace('AM', '').split(':')[1])
+            else:
+                time = int(userinput.split(
+                    ':')[0]) * 60 + int(userinput.split(':')[1])
+        else:
+            if 'PM' in userinput:
+                time = int(userinput.replace('PM', '').split()[
+                    0]) * 60 + int(userinput.replace('PM', '').split()[1]) + 720
+            elif 'AM' in userinput:
+                time = int(userinput.replace('AM', '').split()[
+                    0]) * 60 + int(userinput.replace('AM', '').split()[1])
+            else:
+                time = int(userinput.split()[
+                    0]) * 60 + int(userinput.split()[1])
+
+        return time
 
 
 def setup(bot):
