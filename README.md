@@ -51,6 +51,4 @@ The bot will provide the number of servers it is a part of and its invite link.
 
 - Ability to set notifications to weekdays only
 
-- Routes?
-
-- Possibly add notification option to notify when bus is X minutes away starting at particular time
+- Provide alternative (faster) routes

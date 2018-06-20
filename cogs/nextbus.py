@@ -93,28 +93,37 @@ class NextBus:
                     type='rich',
                     colour=discord.Colour(0x37980a))
 
-                for t in zip(
-                        range(
-                            1,
-                            len(user_notifications) +
-                            1),
-                        user_notifications):
+                for t in zip(range(1, len(user_notifications) + 1), user_notifications):
                     # Convert time from UTC to local time.
-                    converted_time = t[1]['time'] + \
+                    converted_time = t[1]['time1'] + \
                         self.time_zones[t[1]['system']['tag']] * 60
 
                     # Wrap around midnight.
                     if converted_time < 0:
                         converted_time += 1440
 
-                    formatted_time = str(
+                    formatted_time_1 = str(
                         datetime.time(
                             divmod(
                                 converted_time, 60)[0], divmod(
                                 converted_time, 60)[1]))
 
-                    embed.add_field(name=t[0], value='{} at {}'.format(
-                        t[1]['stop']['title'], formatted_time), inline=False)
+                    # Convert time from UTC to local time.
+                    converted_time = t[1]['time2'] + \
+                        self.time_zones[t[1]['system']['tag']] * 60
+
+                    # Wrap around midnight.
+                    if converted_time < 0:
+                        converted_time += 1440
+
+                    formatted_time_2 = str(
+                        datetime.time(
+                            divmod(
+                                converted_time, 60)[0], divmod(
+                                converted_time, 60)[1]))
+
+                    embed.add_field(name=t[0], value='{} at {}\n{} at {}'.format(
+                        t[1]['stop1']['title'], formatted_time_1, t[1]['stop2']['title'], formatted_time_2), inline=False)
 
                 await self.bot.say(embed=embed)
 
@@ -151,33 +160,7 @@ class NextBus:
                 return
 
             # Tell the user that the operation succeeded.
-            embed = discord.Embed(
-                title='Notification Deleted!',
-                type='rich',
-                colour=discord.Colour(0x37980a))
-
-            embed.add_field(
-                name='Line', value=notification['line']['title'], inline=False)
-            embed.add_field(
-                name='Stop', value=notification['stop']['title'], inline=False)
-
-            # Convert time from UTC to local time.
-            converted_time = notification['time'] + \
-                self.time_zones[notification
-                                ['system']['tag']] * 60
-
-            # Wrap around midnight.
-            if converted_time < 0:
-                converted_time += 1440
-
-            embed.add_field(
-                name='Time', value=str(
-                    datetime.time(
-                        divmod(
-                            converted_time, 60)[0], divmod(
-                            converted_time, 60)[1])), inline=False)
-
-            await self.bot.say(embed=embed)
+            await self.bot.say(embed=self.notification_embed('Notification Deleted!', notification))
 
     @delete.error
     async def delete_handler(self, error, ctx):
@@ -190,9 +173,7 @@ class NextBus:
     @commands.command(
         pass_context=True,
         description='The bot will prompt you to modify the specified notification.',
-        aliases=[
-            'c',
-            'C'])
+        aliases=['c', 'C'])
     async def change(self, ctx, action, ID: int):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
@@ -203,47 +184,15 @@ class NextBus:
             return
 
         else:
-            # Find all notifications that the user hsa created.
+            # Find all notifications that the user has created.
             user_notifications = [t for t in self.db.posts.find(
                 {'user': ctx.message.author.id})]
 
             # Find the specified notification
             try:
                 notification = user_notifications[ID - 1]
-                embed = discord.Embed(
-                    title='Notification Found!',
-                    type='rich',
-                    colour=discord.Colour(0x37980a))
-                embed.add_field(
-                    name='Bus System',
-                    value=notification['system']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Line',
-                    value=notification['line']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Stop',
-                    value=notification['stop']['title'],
-                    inline=False)
 
-                # Convert time from UTC to local time.
-                converted_time = notification['time'] + \
-                    self.time_zones[notification
-                                    ['system']['tag']] * 60
-
-                # Wrap around midnight.
-                if converted_time < 0:
-                    converted_time += 1440
-
-                embed.add_field(
-                    name='Time', value=str(
-                        datetime.time(
-                            divmod(
-                                converted_time, 60)[0], divmod(
-                                converted_time, 60)[1])), inline=False)
-
-                await self.bot.say('Notification Found!', embed=embed)
+                await self.bot.say('Notification Found!', embed=self.notification_embed('Notification Info', notification))
 
             except IndexError:
                 await self.bot.say("Sorry, I couldn't find the specified notification.\nUse '!bus list' to see the IDs of all your current notifications")
@@ -257,21 +206,20 @@ class NextBus:
             self.in_commands.append(ctx.message.author.id)
 
             if action.lower() in ['time', 't']:
-                # The bot asks for a time to notify the user.
+                # The bot asks for a time to notify the user for the first stop.
                 embed = discord.Embed(
-                    title='What should I change the notification time to?',
+                    title='When should I notify you for the first (starting) stop?',
                     type='rich',
                     colour=discord.Colour(0x37980a))
 
                 embed.add_field(name='Time Examples',
-                                value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
+                                value='16 30, 16:30, 4:30 PM, 4 30 PM')
 
                 await self.bot.say(embed=embed)
 
-                time_choice = await self.bot.wait_for_message(
+                time_choice_1 = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
-
-                if not time_choice:
+                if not time_choice_1:
                     # Tell user when bot.wait_for_message times out.
                     await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -281,80 +229,126 @@ class NextBus:
                     return
 
                 try:
-                    # Check if the user provides a time that is over the amount
-                    # of time in a day.
-                    if int(time_choice.content.split()[
-                           0]) * 60 + int(time_choice.content.split()[1]) < 1440:
-                        # Check if the time, when converted to UTC, needs to
-                        # wrap back around midnight.
-                        if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[
-                                1]) - self.time_zones[notification['system']['tag']] * 60 > 1440:
-                            # Wrap back around midnight.
-                            notification['time'] = int(time_choice.content.split()[0]) * 60 + int(
-                                time_choice.content.split()[1]) - self.time_zones[notification['system']['tag']] * 60 - 1440
-
+                    # Check if the user provides a time that is over the amount of time
+                    # in a day.
+                    if ':' in time_choice_1.content:
+                        if 'PM' in time_choice_1.content:
+                            time_1 = int(time_choice_1.content.replace('PM', '').split(
+                                ':')[0]) * 60 + int(time_choice_1.content.replace('PM', '').split(':')[1]) + 720
+                        elif 'AM' in time_choice_1.content:
+                            time_1 = int(time_choice_1.content.replace('AM', '').split(
+                                ':')[0]) * 60 + int(time_choice_1.content.replace('AM', '').split(':')[1])
                         else:
-                            notification['time'] = int(time_choice.content.split()[0]) * 60 + int(
-                                time_choice.content.split()[1]) - self.time_zones[notification['system']['tag']] * 60
+                            time_1 = int(time_choice_1.content.split(
+                                ':')[0]) * 60 + int(time_choice_1.content.split(':')[1])
+                    else:
+                        if 'PM' in time_choice_1.content:
+                            time_1 = int(time_choice_1.content.replace('PM', '').split()[
+                                0]) * 60 + int(time_choice_1.content.replace('PM', '').split()[1]) + 720
+                        elif 'AM' in time_choice_1.content:
+                            time_1 = int(time_choice_1.content.replace('AM', '').split()[
+                                0]) * 60 + int(time_choice_1.content.replace('AM', '').split()[1])
+                        else:
+                            time_1 = int(time_choice_1.content.split()[
+                                0]) * 60 + int(time_choice_1.content.split()[1])
 
-                        self.db.posts.replace_one(
-                            {'_id': notification['_id']}, notification)
+                    # Check if the time, when converted to UTC, needs to wrap back
+                    # around midnight.
+                    if time_1 - self.time_zones[notification['system']['tag']] * 60 > 1440:
+                        # Wrap back around midnight.
+                        time_1 = time_1 - \
+                            self.time_zones[notification['system']
+                                            ['tag']] * 60 - 1440
 
                     else:
-                        # Tell user that they provided a time that exceeds the
-                        # amount of time in a day.
-                        await self.bot.say("I don't think I'll be able to contact you at that time.")
-
-                        # Allow users to call other commands.
-                        self.in_commands.remove(ctx.message.author.id)
-
-                        return
+                        time_1 = time_1 - \
+                            self.time_zones[notification['system']['tag']] * 60
 
                 except Exception:
                     # Tell user that there is an error.
-                    await self.bot.say("Something went wrong. I'll try to fix it soon.")
+                    await self.bot.say("I couldn't understand your time format.")
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
 
                     return
 
-                # Provide the user with a summary of their notification.
+                # The bot asks for a time to notify the user for the second stop.
                 embed = discord.Embed(
-                    title='Notification Info',
+                    title='When should I notify you for the second (destination) stop?',
                     type='rich',
                     colour=discord.Colour(0x37980a))
 
-                embed.add_field(
-                    name='Bus System',
-                    value=notification['system']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Line',
-                    value=notification['line']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Stop',
-                    value=notification['stop']['title'],
-                    inline=False)
+                embed.add_field(name='Time Examples',
+                                value='16 30, 16:30, 4:30 PM, 4 30 PM')
 
-                # Convert time from UTC to local time.
-                converted_time = notification['time'] + \
-                    self.time_zones[notification
-                                    ['system']['tag']] * 60
+                await self.bot.say(embed=embed)
 
-                # Wrap around midnight.
-                if converted_time < 0:
-                    converted_time += 1440
+                time_choice_2 = await self.bot.wait_for_message(
+                    author=ctx.message.author, timeout=300)
 
-                embed.add_field(
-                    name='Time', value=str(
-                        datetime.time(
-                            divmod(
-                                converted_time, 60)[0], divmod(
-                                converted_time, 60)[1])), inline=False)
+                if not time_choice_2:
+                    # Tell user when bot.wait_for_message times out.
+                    await self.bot.say("Sorry, I didn't pick up a response.")
 
-                await self.bot.say("Notification updated!", embed=embed)
+                    # Allow users to call other commands.
+                    self.in_commands.remove(ctx.message.author.id)
+
+                    return
+
+                try:
+                    # Check if the user provides a time that is over the amount of time
+                    # in a day.
+                    if ':' in time_choice_2.content:
+                        if 'PM' in time_choice_2.content:
+                            time_2 = int(time_choice_2.content.replace('PM', '').split(
+                                ':')[0]) * 60 + int(time_choice_2.content.replace('PM', '').split(':')[1]) + 720
+                        elif 'AM' in time_choice_2.content:
+                            time_2 = int(time_choice_2.content.replace('AM', '').split(
+                                ':')[0]) * 60 + int(time_choice_2.content.replace('AM', '').split(':')[1])
+                        else:
+                            time_2 = int(time_choice_2.content.split(
+                                ':')[0]) * 60 + int(time_choice_2.content.split(':')[1])
+                    else:
+                        if 'PM' in time_choice_2.content:
+                            time_2 = int(time_choice_2.content.replace('PM', '').split()[
+                                0]) * 60 + int(time_choice_2.content.replace('PM', '').split()[1]) + 720
+                        elif 'AM' in time_choice_2.content:
+                            time_2 = int(time_choice_2.content.replace('AM', '').split()[
+                                0]) * 60 + int(time_choice_2.content.replace('AM', '').split()[1])
+                        else:
+                            time_2 = int(time_choice_2.content.split()[
+                                0]) * 60 + int(time_choice_2.content.split()[1])
+
+                    # Check if the time, when converted to UTC, needs to wrap back
+                    # around midnight.
+                    if time_2 - self.time_zones[notification['system']['tag']] * 60 > 1440:
+                        # Wrap back around midnight.
+                        time_2 = time_2 - \
+                            self.time_zones[notification['system']
+                                            ['tag']] * 60 - 1440
+
+                    else:
+                        time_2 = time_2 - \
+                            self.time_zones[notification['system']['tag']] * 60
+
+                except:
+                    # Tell user that there is an error.
+                    await self.bot.say("I couldn't understand your time format.")
+
+                    # Allow users to call other commands.
+                    self.in_commands.remove(ctx.message.author.id)
+
+                    return
+
+                notification['time1'] = time_1
+                notification['time2'] = time_2
+
+                self.db.posts.replace_one(
+                    {'_id': notification['_id']}, notification)
+
+                await self.bot.say("Notification updated!",
+                                   embed=self.notification_embed('Notification Info', notification))
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -426,7 +420,7 @@ class NextBus:
                     try:
                         line = found_lines[int(choice.content) - 1]
 
-                    except Exception:
+                    except IndexError:
                         # Tell the user if they provide an invalid index.
                         await self.bot.say("I don't think that's a valid choice.")
 
@@ -438,7 +432,7 @@ class NextBus:
                 await self.bot.say('You selected {}!'.format(line['title']))
 
                 # The bot asks the user for a stop.
-                await self.bot.say('Which stop do you want to update to?')
+                await self.bot.say('What do you want to change the first stop to?')
 
                 stop_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
@@ -452,8 +446,7 @@ class NextBus:
 
                     return
 
-                # Get all routes for the given bus and line from the NextBus
-                # API.
+                # Get all routes for the given bus and line from the NextBus API.
                 async with aiohttp.ClientSession() as session:
                     async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
                         route_data = await response.json()
@@ -477,11 +470,10 @@ class NextBus:
                         "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
 
                 elif len(found_stops) == 1:
-                    stop = found_stops[0]
+                    stop_1 = found_stops[0]
 
                 else:
-                    # Provide user with the matching lines and ask them to
-                    # choose one.
+                    # Provide user with the matching lines and ask them to choose one.
                     embed = discord.Embed(
                         title='Choose a stop by number.',
                         type='rich',
@@ -507,9 +499,9 @@ class NextBus:
                         return
 
                     try:
-                        stop = found_stops[int(choice.content) - 1]
+                        stop_1 = found_stops[int(choice.content) - 1]
 
-                    except Exception:
+                    except IndexError:
                         # Tell the user if they provide an invalid index.
                         await self.bot.say("That's not a valid choice.")
 
@@ -518,50 +510,98 @@ class NextBus:
 
                         return
 
-                await self.bot.say('You selected {}!'.format(stop['title']))
+                await self.bot.say('You selected {}!'.format(stop_1['title']))
 
-                notification['stop'] = stop
+                # The bot asks the user for a second stop.
+                await self.bot.say('What do you want to change the second stop to?')
+
+                stop_choice = await self.bot.wait_for_message(
+                    author=ctx.message.author, timeout=300)
+
+                if not stop_choice:
+                    # Tell user when bot.wait_for_message times out.
+                    await self.bot.say("Sorry, I didn't pick up a response.")
+
+                    # Allow users to call other commands.
+                    self.in_commands.remove(ctx.message.author.id)
+
+                    return
+
+                # Get all routes for the given bus and line from the NextBus API.
+                async with aiohttp.ClientSession() as session:
+                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
+                        route_data = await response.json()
+
+                # Separate stop data and directional (in/outbound) data
+                stops = route_data['route']['stop']
+                direction_data = route_data['route']['direction']
+
+                # Sort out all matching stops.
+                found_stops = [
+                    stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
+
+                # Sort out all directional data for the matching stops.
+                directions = [
+                    direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+                        stop['tag'] for stop in direction['stop']]]
+
+                if not found_stops:
+                    # Tell user that no matching stops were found.
+                    await self.bot.say(
+                        "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+
+                elif len(found_stops) == 1:
+                    stop_2 = found_stops[0]
+
+                else:
+                    # Provide user with the matching lines and ask them to choose one.
+                    embed = discord.Embed(
+                        title='Choose a stop by number.',
+                        type='rich',
+                        colour=discord.Colour(0x37980a))
+
+                    for t in zip(range(1, len(found_stops) + 1),
+                                 [d['title'] for d in found_stops], directions):
+                        embed.add_field(
+                            name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
+
+                    await self.bot.say('I found {} matching stop(s).'.format(len(found_stops)), embed=embed)
+
+                    choice = await self.bot.wait_for_message(
+                        author=ctx.message.author, timeout=300)
+
+                    if not choice:
+                        # Tell user when bot.wait_for_message times out.
+                        await self.bot.say("Sorry, I didn't pick up a response.")
+
+                        # Allow users to call other commands.
+                        self.in_commands.remove(ctx.message.author.id)
+
+                        return
+
+                    try:
+                        stop_2 = found_stops[int(choice.content) - 1]
+
+                    except IndexError:
+                        # Tell the user if they provide an invalid index.
+                        await self.bot.say("That's not a valid choice.")
+
+                        # Allow users to call other commands.
+                        self.in_commands.remove(ctx.message.author.id)
+
+                        return
+
+                await self.bot.say('You selected {}!'.format(stop_2['title']))
+
+                notification['stop1'] = stop_1
+                notification['stop2'] = stop_2
                 notification['line'] = line
 
                 self.db.posts.replace_one(
                     {'_id': notification['_id']}, notification)
 
                 # Provide the user with a summary of their notification.
-                embed = discord.Embed(
-                    title='Notification Info',
-                    type='rich',
-                    colour=discord.Colour(0x37980a))
-
-                embed.add_field(
-                    name='Bus System',
-                    value=notification['system']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Line',
-                    value=notification['line']['title'],
-                    inline=False)
-                embed.add_field(
-                    name='Stop',
-                    value=notification['stop']['title'],
-                    inline=False)
-
-                # Convert time from UTC to local time.
-                converted_time = notification['time'] + \
-                    self.time_zones[notification
-                                    ['system']['tag']] * 60
-
-                # Wrap around midnight.
-                if converted_time < 0:
-                    converted_time += 1440
-
-                embed.add_field(
-                    name='Time', value=str(
-                        datetime.time(
-                            divmod(
-                                converted_time, 60)[0], divmod(
-                                converted_time, 60)[1])), inline=False)
-
-                await self.bot.say('Notification updated!', embed=embed)
+                await self.bot.say('Notification updated!', embed=self.notification_embed('Notification Info', notification))
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -578,7 +618,7 @@ class NextBus:
     @change.error
     async def change_handler(self, error, ctx):
         if isinstance(error, commands.BadArgument):
-            await self.bot.say("The specified ID isn't a number")
+            await self.bot.say("The specified ID isn't a number.")
 
         if isinstance(error, commands.MissingRequiredArgument):
             await self.bot.say("You forgot to include an ID or an action for me to delete.\nUse '!bus list' to view all your notifications or use '!bus start' to get all available commands.")
@@ -664,7 +704,7 @@ class NextBus:
             try:
                 bus_system = found_busses[int(choice.content) - 1]
 
-            except Exception:
+            except IndexError:
                 # Tell the user if they provide an invalid index.
                 await self.bot.say("I don't think that's a valid choice.")
 
@@ -676,7 +716,7 @@ class NextBus:
         await self.bot.say('You selected {}!'.format(bus_system['title']))
 
         # The bot asks the user for a route/line.
-        await self.bot.say('Which route/ line do you use?')
+        await self.bot.say('Which route/ line do want to set a notification for?')
 
         line_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
@@ -740,7 +780,7 @@ class NextBus:
             try:
                 line = found_lines[int(choice.content) - 1]
 
-            except Exception:
+            except IndexError:
                 # Tell the user if they provide an invalid index.
                 await self.bot.say("I don't think that's a valid choice.")
 
@@ -751,8 +791,8 @@ class NextBus:
 
         await self.bot.say('You selected {}!'.format(line['title']))
 
-        # The bot asks the user for a stop.
-        await self.bot.say('Which stop do you use?')
+        # The bot asks the user for a first stop.
+        await self.bot.say("What's your first (starting) stop?")
 
         stop_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
@@ -790,7 +830,7 @@ class NextBus:
                 "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
 
         elif len(found_stops) == 1:
-            stop = found_stops[0]
+            stop_1 = found_stops[0]
 
         else:
             # Provide user with the matching lines and ask them to choose one.
@@ -819,9 +859,9 @@ class NextBus:
                 return
 
             try:
-                stop = found_stops[int(choice.content) - 1]
+                stop_1 = found_stops[int(choice.content) - 1]
 
-            except Exception:
+            except IndexError:
                 # Tell the user if they provide an invalid index.
                 await self.bot.say("That's not a valid choice.")
 
@@ -830,23 +870,104 @@ class NextBus:
 
                 return
 
-        await self.bot.say('You selected {}!'.format(stop['title']))
+        await self.bot.say('You selected {}!'.format(stop_1['title']))
 
-        # The bot asks for a time to notify the user.
+        # The bot asks the user for a second stop.
+        await self.bot.say("What's your second (destination) stop?")
+
+        stop_choice = await self.bot.wait_for_message(
+            author=ctx.message.author, timeout=300)
+
+        if not stop_choice:
+            # Tell user when bot.wait_for_message times out.
+            await self.bot.say("Sorry, I didn't pick up a response.")
+
+            # Allow users to call other commands.
+            self.in_commands.remove(ctx.message.author.id)
+
+            return
+
+        # Get all routes for the given bus and line from the NextBus API.
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
+                route_data = await response.json()
+
+        # Separate stop data and directional (in/outbound) data
+        stops = route_data['route']['stop']
+        direction_data = route_data['route']['direction']
+
+        # Sort out all matching stops.
+        found_stops = [
+            stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
+
+        # Sort out all directional data for the matching stops.
+        directions = [
+            direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+                stop['tag'] for stop in direction['stop']]]
+
+        if not found_stops:
+            # Tell user that no matching stops were found.
+            await self.bot.say(
+                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+
+        elif len(found_stops) == 1:
+            stop_2 = found_stops[0]
+
+        else:
+            # Provide user with the matching lines and ask them to choose one.
+            embed = discord.Embed(
+                title='Choose a stop by number.',
+                type='rich',
+                colour=discord.Colour(0x37980a))
+
+            for t in zip(range(1, len(found_stops) + 1),
+                         [d['title'] for d in found_stops], directions):
+                embed.add_field(
+                    name=t[0], value='{} - {}'.format(t[1], t[2]), inline=False)
+
+            await self.bot.say('I found {} matching stop(s).'.format(len(found_stops)), embed=embed)
+
+            choice = await self.bot.wait_for_message(
+                author=ctx.message.author, timeout=300)
+
+            if not choice:
+                # Tell user when bot.wait_for_message times out.
+                await self.bot.say("Sorry, I didn't pick up a response.")
+
+                # Allow users to call other commands.
+                self.in_commands.remove(ctx.message.author.id)
+
+                return
+
+            try:
+                stop_2 = found_stops[int(choice.content) - 1]
+
+            except IndexError:
+                # Tell the user if they provide an invalid index.
+                await self.bot.say("That's not a valid choice.")
+
+                # Allow users to call other commands.
+                self.in_commands.remove(ctx.message.author.id)
+
+                return
+
+        await self.bot.say('You selected {}!'.format(stop_2['title']))
+
+        # The bot asks for a time to notify the user for the first stop.
         embed = discord.Embed(
-            title='When should I notify you?',
+            title='When should I notify you for the first (starting) stop?',
             type='rich',
             colour=discord.Colour(0x37980a))
 
         embed.add_field(name='Time Examples',
-                        value='16 30 : 4:30 PM\n6 30 : 6:30 AM')
+                        value='16 30, 16:30, 4:30 PM, 4 30 PM')
 
         await self.bot.say(embed=embed)
 
-        time_choice = await self.bot.wait_for_message(
+        time_choice_1 = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
-        if not time_choice:
+        if not time_choice_1:
             # Tell user when bot.wait_for_message times out.
             await self.bot.say("Sorry, I didn't pick up a response.")
 
@@ -858,60 +979,131 @@ class NextBus:
         try:
             # Check if the user provides a time that is over the amount of time
             # in a day.
-            if int(time_choice.content.split()[
-                   0]) * 60 + int(time_choice.content.split()[1]) < 1440:
-                # Check if the time, when converted to UTC, needs to wrap back
-                # around midnight.
-                if int(time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[
-                        1]) - self.time_zones[bus_system['tag']] * 60 > 1440:
-                    # Wrap back around midnight.
-                    post = {'user': ctx.message.author.id, 'system': bus_system, 'stop': stop, 'line': line, 'time': int(
-                        time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60 - 1440}
-
+            if ':' in time_choice_1.content:
+                if 'PM' in time_choice_1.content:
+                    time_1 = int(time_choice_1.content.replace('PM', '').split(
+                        ':')[0]) * 60 + int(time_choice_1.content.replace('PM', '').split(':')[1]) + 720
+                elif 'AM' in time_choice_1.content:
+                    time_1 = int(time_choice_1.content.replace('AM', '').split(
+                        ':')[0]) * 60 + int(time_choice_1.content.replace('AM', '').split(':')[1])
                 else:
-                    post = {'user': ctx.message.author.id, 'system': bus_system, 'stop': stop, 'line': line, 'time': int(
-                        time_choice.content.split()[0]) * 60 + int(time_choice.content.split()[1]) - self.time_zones[bus_system['tag']] * 60}
-                # Insert notification into database.
-                self.db.posts.insert_one(post)
+                    time_1 = int(time_choice_1.content.split(
+                        ':')[0]) * 60 + int(time_choice_1.content.split(':')[1])
+            else:
+                if 'PM' in time_choice_1.content:
+                    time_1 = int(time_choice_1.content.replace('PM', '').split()[
+                        0]) * 60 + int(time_choice_1.content.replace('PM', '').split()[1]) + 720
+                elif 'AM' in time_choice_1.content:
+                    time_1 = int(time_choice_1.content.replace('AM', '').split()[
+                        0]) * 60 + int(time_choice_1.content.replace('AM', '').split()[1])
+                else:
+                    time_1 = int(time_choice_1.content.split()[
+                        0]) * 60 + int(time_choice_1.content.split()[1])
 
-                # Provide the user with a summary of their notification.
-                embed = discord.Embed(
-                    title='Notification Info',
-                    type='rich',
-                    colour=discord.Colour(0x37980a))
-
-                embed.add_field(name='Bus System',
-                                value=bus_system['title'], inline=False)
-                embed.add_field(
-                    name='Line', value=line['title'], inline=False)
-                embed.add_field(
-                    name='Stop', value=stop['title'], inline=False)
-                embed.add_field(name='Time', value=str(datetime.time(int(
-                    time_choice.content.split()[0]), int(time_choice.content.split()[1]))), inline=False)
-
-                await self.bot.say("Notification set!", embed=embed)
-
-                # Allow users to call other commands.
-                self.in_commands.remove(ctx.message.author.id)
+            # Check if the time, when converted to UTC, needs to wrap back
+            # around midnight.
+            if time_1 - self.time_zones[bus_system['tag']] * 60 > 1440:
+                # Wrap back around midnight.
+                time_1 = time_1 - \
+                    self.time_zones[bus_system['tag']] * 60 - 1440
 
             else:
-                # Tell user that they provided a time that exceeds the amount
-                # of time in a day.
-                await self.bot.say("I don't think I'll be able to contact you at that time.")
-
-                # Allow users to call other commands.
-                self.in_commands.remove(ctx.message.author.id)
-
-                return
+                time_1 = time_1 - \
+                    self.time_zones[bus_system['tag']] * 60
 
         except Exception:
             # Tell user that there is an error.
-            await self.bot.say("Something went wrong. I'll try to fix it soon.")
+            await self.bot.say("I couldn't understand your time format.")
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
 
             return
+
+        # The bot asks for a time to notify the user for the second stop.
+        embed = discord.Embed(
+            title='When should I notify you for the second (destination) stop?',
+            type='rich',
+            colour=discord.Colour(0x37980a))
+
+        embed.add_field(name='Time Examples',
+                        value='16 30, 16:30, 4:30 PM, 4 30 PM')
+
+        await self.bot.say(embed=embed)
+
+        time_choice_2 = await self.bot.wait_for_message(
+            author=ctx.message.author, timeout=300)
+
+        if not time_choice_2:
+            # Tell user when bot.wait_for_message times out.
+            await self.bot.say("Sorry, I didn't pick up a response.")
+
+            # Allow users to call other commands.
+            self.in_commands.remove(ctx.message.author.id)
+
+            return
+
+        try:
+            # Check if the user provides a time that is over the amount of time
+            # in a day.
+            if ':' in time_choice_2.content:
+                if 'PM' in time_choice_2.content:
+                    time_2 = int(time_choice_2.content.replace('PM', '').split(
+                        ':')[0]) * 60 + int(time_choice_2.content.replace('PM', '').split(':')[1]) + 720
+                elif 'AM' in time_choice_2.content:
+                    time_2 = int(time_choice_2.content.replace('AM', '').split(
+                        ':')[0]) * 60 + int(time_choice_2.content.replace('AM', '').split(':')[1])
+                else:
+                    time_2 = int(time_choice_2.content.split(
+                        ':')[0]) * 60 + int(time_choice_2.content.split(':')[1])
+            else:
+                if 'PM' in time_choice_2.content:
+                    time_2 = int(time_choice_2.content.replace('PM', '').split()[
+                        0]) * 60 + int(time_choice_2.content.replace('PM', '').split()[1]) + 720
+                elif 'AM' in time_choice_2.content:
+                    time_2 = int(time_choice_2.content.replace('AM', '').split()[
+                        0]) * 60 + int(time_choice_2.content.replace('AM', '').split()[1])
+                else:
+                    time_2 = int(time_choice_2.content.split()[
+                        0]) * 60 + int(time_choice_2.content.split()[1])
+
+            # Check if the time, when converted to UTC, needs to wrap back
+            # around midnight.
+            if time_2 - self.time_zones[bus_system['tag']] * 60 > 1440:
+                # Wrap back around midnight.
+                time_2 = time_2 - \
+                    self.time_zones[bus_system['tag']] * 60 - 1440
+
+            else:
+                time_2 = time_2 - \
+                    self.time_zones[bus_system['tag']] * 60
+
+        except Exception:
+            # Tell user that there is an error.
+            await self.bot.say("I couldn't understand your time format.")
+
+            # Allow users to call other commands.
+            self.in_commands.remove(ctx.message.author.id)
+
+            return
+
+        post = {'user': ctx.message.author.id,
+                'system': bus_system,
+                'line': line,
+                'stop1': stop_1,
+                'time1': time_1,
+                'stop2': stop_2,
+                'time2': time_2}
+
+        # Insert notification into database.
+        self.db.posts.insert_one(post)
+
+        # Provide the user with a summary of their notification.
+        await self.bot.say(
+            "Notification set!", embed=self.notification_embed('Notification Info', post))
+
+        # Allow users to call other commands.
+        self.in_commands.remove(ctx.message.author.id)
 
     async def notifier(self):
         while True:
@@ -932,23 +1124,17 @@ class NextBus:
                 60)
 
             # Find all notifications set for this minute.
-            for notification in self.db.posts.find({'time': now_in_minutes}):
+            for notification in self.db.posts.find({'time1': now_in_minutes}):
                 try:
                     # Get the time_predictions from the NextBus API.
                     async with aiohttp.ClientSession() as session:
-                        async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop']['tag'])) as response:
+                        async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop1']['tag'])) as response:
                             time_predictions = await response.json()
 
                     # Notify the user with the predicted bus times.
-                    embed = discord.Embed(
-                        title='NextBus Notification',
-                        type='rich',
-                        colour=discord.Colour(0x37980a))
+                    embed = self.notification_embed(
+                        'Nextbus Notification', notification)
 
-                    embed.add_field(
-                        name='Line', value=notification['line']['title'])
-                    embed.add_field(
-                        name='Stop', value=notification['stop']['title'])
                     embed.add_field(name='Bus Times', value='\n\n'.join(["Bus coming in {} Minutes".format(
                         prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
 
@@ -960,6 +1146,72 @@ class NextBus:
                     await self.bot.send_message(discord.utils.get(self.bot.get_all_members(), id=notification['user']),
                                                 "I couldn't find any predictions, but I found these messages:\n" +
                                                 '\n'.join([m['text'] for m in time_predictions['predictions']['message']]))
+
+            # Find all notifications set for this minute.
+            for notification in self.db.posts.find({'time1': now_in_minutes}):
+                try:
+                    # Get the time_predictions from the NextBus API.
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=predictions&a={}&r={}&s={}'.format(notification['system']['tag'], notification['line']['tag'], notification['stop2']['tag'])) as response:
+                            time_predictions = await response.json()
+
+                    # Notify the user with the predicted bus times.
+                    embed = self.notification_embed(
+                        'Nextbus Notification', notification)
+
+                    embed.add_field(name='Bus Times', value='\n\n'.join(["Bus coming in {} Minutes".format(
+                        prediction['minutes']) for prediction in time_predictions['predictions']['direction']['prediction']]), inline=False)
+
+                    await self.bot.send_message(discord.utils.get(
+                        self.bot.get_all_members(), id=notification['user']), embed=embed)
+
+                except KeyError:
+                    # Tell user that there were no predictions.
+                    await self.bot.send_message(discord.utils.get(self.bot.get_all_members(), id=notification['user']),
+                                                "I couldn't find any predictions for {}, but I found these messages:\n" +
+                                                '\n'.join([m['text'] for m in time_predictions['predictions']['message']]).format(notification['stop2']['title']))
+
+    def notification_embed(self, title, notification):
+        # Tell the user that the operation succeeded.
+        embed = discord.Embed(
+            title=title,
+            type='rich',
+            colour=discord.Colour(0x37980a))
+        embed.add_field(
+            name='Line', value=notification['line']['title'], inline=False)
+
+        # Convert time from UTC to local time.
+        converted_time = notification['time1'] + \
+            self.time_zones[notification
+                            ['system']['tag']] * 60
+        # Wrap around midnight.
+        if converted_time < 0:
+            converted_time += 1440
+
+        embed.add_field(
+            name='First Stop', value='{} at {}'.format(notification['stop1']['title'], str(
+                datetime.time(
+                    divmod(
+                        converted_time, 60)[0], divmod(
+                        converted_time, 60)[1]))), inline=False)
+
+        # Convert time from UTC to local time.
+        converted_time = notification['time2'] + \
+            self.time_zones[notification
+                            ['system']['tag']] * 60
+
+        # Wrap around midnight.
+        if converted_time < 0:
+            converted_time += 1440
+
+        embed.add_field(
+            name='Second Stop', value='{} at {}'.format(notification['stop2']['title'], str(
+                datetime.time(
+                    divmod(
+                        converted_time, 60)[0], divmod(
+                        converted_time, 60)[1]))), inline=False)
+
+        return embed
 
 
 def setup(bot):
