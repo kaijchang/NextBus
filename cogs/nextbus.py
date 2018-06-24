@@ -4,7 +4,6 @@ import datetime
 import time
 import asyncio
 from pymongo import MongoClient
-import json
 import aiohttp
 
 # config
@@ -492,7 +491,7 @@ class NextBus:
 
                     return
 
-                found_stops = await self.getMatchingStops(
+                found_stops, directions = await self.getMatchingStops(
                     notification['system']['tag'], line['tag'], stop_choice.content)
 
                 if not found_stops:
@@ -557,7 +556,7 @@ class NextBus:
 
                     return
 
-                found_stops = await self.getMatchingStops(
+                found_stops, directions = await self.getMatchingStops(
                     notification['system']['tag'], line['tag'], stop_choice.content)
 
                 if not found_stops:
@@ -730,6 +729,9 @@ class NextBus:
             await self.bot.say('You selected {}!'.format(bus_system['title']))
 
         else:
+            # Don't allow user to use any other commands while in this one.
+            self.in_commands.append(ctx.message.author.id)
+
             bus_system = [a for a in self.db.posts.find(
                 {'user': ctx.message.author.id})][0]['system']
 
@@ -737,7 +739,7 @@ class NextBus:
                 bus_system['title']))
 
         # The bot asks the user for a route/line.
-        await self.bot.say(self.dialoge['ASKLINE'])
+        await self.bot.say(self.dialogue['ASKLINE'])
 
         line_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
@@ -820,7 +822,7 @@ class NextBus:
 
             return
 
-        found_stops = await self.getMatchingStops(
+        found_stops, directions = await self.getMatchingStops(
             bus_system['tag'], line['tag'], stop_choice.content)
 
         if not found_stops:
@@ -885,7 +887,7 @@ class NextBus:
 
             return
 
-        found_stops = await self.getMatchingStops(
+        found_stops, directions = await self.getMatchingStops(
             bus_system['tag'], line['tag'], stop_choice.content)
 
         if not found_stops:
@@ -1005,7 +1007,7 @@ class NextBus:
             return
 
         try:
-            time_2 = parseUserTime(time_choice.content)
+            time_2 = self.parseUserTime(time_choice.content)
 
             # Check if the time, when converted to UTC, needs to wrap back
             # around midnight.
@@ -1195,7 +1197,7 @@ class NextBus:
             direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
                 stop['tag'] for stop in direction['stop']]]
 
-        return found_stops
+        return found_stops, directions
 
     async def getMatchingLines(self, system, lineQuery):
         # Get all lines for the given bus system from the NextBus API.
