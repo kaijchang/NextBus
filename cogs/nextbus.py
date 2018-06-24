@@ -7,12 +7,106 @@ from pymongo import MongoClient
 import json
 import aiohttp
 
+# config
+
+dialogue = {
+    "PUBLIC": "Sorry, I can't you with so many people watching....\nPM me!",
+    "NONOTIF": "No notifications found.\nUse '!bus add' to add a notification.",
+    "NOTIFNOTFOUND": "Sorry, I couldn't find the specified notification.\nUse '!bus list' to see the IDs of all your current notifications",
+    "MISSINGID": "You forgot to include an ID for me to delete.\nUse '!bus list' to view all your notifications.",
+    "BADTIME": "I couldn't understand your time format.",
+    "TIMEOUT": "Sorry, I didn't pick up a response.",
+    "UPDATELINE": 'Which route/ line do you want to update to?',
+    "NORESULTS": "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.",
+    "BADCHOICE": "I don't think that's a valid choice.",
+    "UPDATESTOP1": 'What do you want to change the first stop to?',
+    "UPDATESTOP2": 'What do you want to change the second stop to?',
+    "BADACTION": "Sorry, couldn't find the part you wanted to edit.\nCheck command usage with '!bus start'.",
+    "BADID": "The specified ID isn't a number.",
+    "NOACTION": "You forgot to include an ID or an action for me to delete.\nUse '!bus list' to view all your notifications or use '!bus start' to get all available commands.",
+    "ASKSYSTEM": "I've got this!\nWhich bus system do you use?",
+    "ASKLINE": 'Which route/ line do want to set a notification for?',
+    "ASKSTOP1": "What's your first (starting) stop?",
+    "ASKSTOP2": "What's your second (destination) stop?",
+
+}
+
+time_zones = {
+   "actransit": -7,
+   "jhu-apl": -4,
+   "art": -4,
+   "atlanta-sc": -4,
+   "bigbluebus": -7,
+   "brockton": -4,
+   "camarillo": -4,
+   "ccrta": -4,
+   "chapel-hill": -4,
+   "charm-city": -4,
+   "ccny": -4,
+   "oxford-ms": -5,
+   "west-hollywood": -7,
+   "cyride": -5,
+   "dc-circulator": -4,
+   "dc-streetcar": -4,
+   "da": -4,
+   "dta": -4,
+   "dumbarton": -7,
+   "charles-river": -4,
+   "ecu": -4,
+   "escalon": -7,
+   "fast": -7,
+   "fairfax": -4,
+   "foothill": -7,
+   "ft-worth": -5,
+   "glendale": -7,
+   "south-coast": -7,
+   "indianapolis-air": -4,
+   "jfk": -4,
+   "jtafla": -4,
+   "laguardia": -4,
+   "lga": -4,
+   "lametro": -7,
+   "lametro-rail": -7,
+   "mbta": -4,
+   "mit": -4,
+   "moorpark": -7,
+   "ewr": -4,
+   "nova-se": -4,
+   "omnitrans": -7,
+   "pvpta": -7,
+   "sria": -4,
+   "psu": -4,
+   "portland-sc": -7,
+   "pgc": -4,
+   "reno": -7,
+   "radford": -4,
+   "roosevelt": -4,
+   "rutgers-newark": -4,
+   "rutgers": -4,
+   "sf-muni": -7,
+   "seattle-sc": -7,
+   "simi-valley": -7,
+   "stl": -4,
+   "sct": -7,
+   "geg": -7,
+   "tahoe": -7,
+   "thousand-oaks": -7,
+   "ttc": -4,
+   "unitrans": -7,
+   "ucb": -7,
+   "umd": -4,
+   "vista": -7,
+   "wku": -4,
+   "winston-salem": -7,
+   "york-pa": -4
+}
+
 
 class NextBus:
     def __init__(self, bot):
 
-        # Load the timezones for the different bus systems.
-        self.time_zones = json.load(open('timezones.json'))
+        self.dialogue = dialogue
+        self.time_zones = time_zones
 
         # Connect to local MongoDB.
         self.client = MongoClient()
@@ -29,7 +123,7 @@ class NextBus:
     async def start(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
-            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+            await self.bot.say(self.dialogue['PUBLIC'])
 
         elif ctx.message.author.id in self.in_commands:
             return
@@ -75,7 +169,7 @@ class NextBus:
     async def list(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
-            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+            await self.bot.say(self.dialogue['PUBLIC'])
 
         elif ctx.message.author.id in self.in_commands:
             return
@@ -128,7 +222,7 @@ class NextBus:
                 await self.bot.say(embed=embed)
 
             else:
-                await self.bot.say("No notifications found.\nUse '!bus add' to add a notification.")
+                await self.bot.say(self.dialogue['NONOTIF'])
 
     @commands.command(
         pass_context=True,
@@ -139,7 +233,7 @@ class NextBus:
     async def delete(self, ctx, ID: int):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
-            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+            await self.bot.say(self.dialogue['PUBLIC'])
 
         elif ctx.message.author.id in self.in_commands:
             return
@@ -156,7 +250,7 @@ class NextBus:
                 self.db.posts.remove(notification)
 
             except IndexError:
-                await self.bot.say("Sorry, I couldn't find the specified notification.\nUse '!bus list' to see the IDs of all your current notifications")
+                await self.bot.say(self.dialogue['NOTIFNOTFOUND'])
                 return
 
             # Tell the user that the operation succeeded.
@@ -168,7 +262,7 @@ class NextBus:
             await self.bot.say("The specified ID isn't a number")
 
         if isinstance(error, commands.MissingRequiredArgument):
-            await self.bot.say("You forgot to include an ID for me to delete.\nUse '!bus list' to view all your notifications.")
+            await self.bot.say(self.dialogue['MISSINGID'])
 
     @commands.command(
         pass_context=True,
@@ -177,7 +271,7 @@ class NextBus:
     async def change(self, ctx, action, ID: int):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
-            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+            await self.bot.say(self.dialogue['PUBLIC'])
             return
 
         elif ctx.message.author.id in self.in_commands:
@@ -195,7 +289,7 @@ class NextBus:
                 await self.bot.say('Notification Found!', embed=self.notification_embed('Notification Info', notification))
 
             except IndexError:
-                await self.bot.say("Sorry, I couldn't find the specified notification.\nUse '!bus list' to see the IDs of all your current notifications")
+                await self.bot.say(self.dialogue['NOTIFNOTFOUND'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -222,7 +316,7 @@ class NextBus:
 
                 if not time_choice:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -246,7 +340,7 @@ class NextBus:
 
                 except Exception:
                     # Tell user that there is an error.
-                    await self.bot.say("I couldn't understand your time format.")
+                    await self.bot.say(self.dialogue['BADTIME'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -269,7 +363,7 @@ class NextBus:
 
                 if not time_choice:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -293,7 +387,7 @@ class NextBus:
 
                 except Exception:
                     # Tell user that there is an error.
-                    await self.bot.say("I couldn't understand your time format.")
+                    await self.bot.say(self.dialogue['BADTIME'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -314,33 +408,26 @@ class NextBus:
 
             elif action.lower() in ['stop', 's']:
                 # The bot asks the user for a route/line.
-                await self.bot.say('Which route/ line do you want to update to?')
+                await self.bot.say(self.dialogue['UPDATELINE'])
 
                 line_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
 
                 if not line_choice:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
 
                     return
 
-                # Get all lines for the given bus system from the NextBus API.
-                async with aiohttp.ClientSession() as session:
-                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(notification['system']['tag'])) as response:
-                        lines = await response.json()
-
-                # Sort out all the matching lines.
-                found_lines = [line for line in lines['route']
-                               if line_choice.content.upper() in line['tag']]
+                found_lines = await self.getMatchingLines(
+                    notification['system']['tag'], line_choice.content)
 
                 if not found_lines:
                     # Tell user that no bus systems were found.
-                    await self.bot.say(
-                        "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+                    await self.bot.say(self.dialogue['NORESULTS'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -369,7 +456,7 @@ class NextBus:
 
                     if not choice:
                         # Tell user when bot.wait_for_message times out.
-                        await self.bot.say("Sorry, I didn't pick up a response.")
+                        await self.bot.say(self.dialogue['TIMEOUT'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -381,7 +468,7 @@ class NextBus:
 
                     except IndexError:
                         # Tell the user if they provide an invalid index.
-                        await self.bot.say("I don't think that's a valid choice.")
+                        await self.bot.say(self.dialogue['BADCHOICE'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -391,42 +478,26 @@ class NextBus:
                 await self.bot.say('You selected {}!'.format(line['title']))
 
                 # The bot asks the user for a stop.
-                await self.bot.say('What do you want to change the first stop to?')
+                await self.bot.say(self.dialogue['UPDATESTOP1'])
 
                 stop_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
 
                 if not stop_choice:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
 
                     return
 
-                # Get all routes for the given bus and line from the NextBus API.
-                async with aiohttp.ClientSession() as session:
-                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
-                        route_data = await response.json()
-
-                # Separate stop data and directional (in/outbound) data
-                stops = route_data['route']['stop']
-                direction_data = route_data['route']['direction']
-
-                # Sort out all matching stops.
-                found_stops = [
-                    stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
-
-                # Sort out all directional data for the matching stops.
-                directions = [
-                    direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                        stop['tag'] for stop in direction['stop']]]
+                found_stops = await self.getMatchingStops(
+                    notification['system']['tag'], line['tag'], stop_choice.content)
 
                 if not found_stops:
                     # Tell user that no matching stops were found.
-                    await self.bot.say(
-                        "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+                    await self.bot.say(self.dialogue['NORESULTS'])
 
                 elif len(found_stops) == 1:
                     stop_1 = found_stops[0]
@@ -450,7 +521,7 @@ class NextBus:
 
                     if not choice:
                         # Tell user when bot.wait_for_message times out.
-                        await self.bot.say("Sorry, I didn't pick up a response.")
+                        await self.bot.say(self.dialogue['TIMEOUT'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -462,7 +533,7 @@ class NextBus:
 
                     except IndexError:
                         # Tell the user if they provide an invalid index.
-                        await self.bot.say("That's not a valid choice.")
+                        await self.bot.say(self.dialogue['BADCHOICE'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -472,42 +543,26 @@ class NextBus:
                 await self.bot.say('You selected {}!'.format(stop_1['title']))
 
                 # The bot asks the user for a second stop.
-                await self.bot.say('What do you want to change the second stop to?')
+                await self.bot.say(self.dialogue['UPDATESTOP2'])
 
                 stop_choice = await self.bot.wait_for_message(
                     author=ctx.message.author, timeout=300)
 
                 if not stop_choice:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
 
                     return
 
-                # Get all routes for the given bus and line from the NextBus API.
-                async with aiohttp.ClientSession() as session:
-                    async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(notification['system']['tag'], line['tag'])) as response:
-                        route_data = await response.json()
-
-                # Separate stop data and directional (in/outbound) data
-                stops = route_data['route']['stop']
-                direction_data = route_data['route']['direction']
-
-                # Sort out all matching stops.
-                found_stops = [
-                    stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
-
-                # Sort out all directional data for the matching stops.
-                directions = [
-                    direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                        stop['tag'] for stop in direction['stop']]]
+                found_stops = await self.getMatchingStops(
+                    notification['system']['tag'], line['tag'], stop_choice.content)
 
                 if not found_stops:
                     # Tell user that no matching stops were found.
-                    await self.bot.say(
-                        "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+                    await self.bot.say(self.dialogue['NORESULTS'])
 
                 elif len(found_stops) == 1:
                     stop_2 = found_stops[0]
@@ -531,7 +586,7 @@ class NextBus:
 
                     if not choice:
                         # Tell user when bot.wait_for_message times out.
-                        await self.bot.say("Sorry, I didn't pick up a response.")
+                        await self.bot.say(self.dialogue['TIMEOUT'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -543,7 +598,7 @@ class NextBus:
 
                     except IndexError:
                         # Tell the user if they provide an invalid index.
-                        await self.bot.say("That's not a valid choice.")
+                        await self.bot.say(self.dialogue['BADCHOICE'])
 
                         # Allow users to call other commands.
                         self.in_commands.remove(ctx.message.author.id)
@@ -567,7 +622,7 @@ class NextBus:
 
             else:
                 # Tell the user that their supplied action was invalid.
-                await self.bot.say("Sorry, couldn't find the part you wanted to edit.\nCheck command usage with '!bus start'.")
+                await self.bot.say(self.dialogue['BADACTION'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -577,10 +632,10 @@ class NextBus:
     @change.error
     async def change_handler(self, error, ctx):
         if isinstance(error, commands.BadArgument):
-            await self.bot.say("The specified ID isn't a number.")
+            await self.bot.say(self.dialogue['BADID'])
 
         if isinstance(error, commands.MissingRequiredArgument):
-            await self.bot.say("You forgot to include an ID or an action for me to delete.\nUse '!bus list' to view all your notifications or use '!bus start' to get all available commands.")
+            await self.bot.say(self.dialogue['NOACTION'])
 
     @commands.command(
         pass_context=True,
@@ -588,7 +643,7 @@ class NextBus:
     async def add(self, ctx):
         if not ctx.message.channel.is_private:
             # Tell user to PM bot if called in public channel.
-            await self.bot.say("Sorry, I can't you with so many people watching....\nPM me!")
+            await self.bot.say(self.dialogue['PUBLIC'])
             return
 
         if ctx.message.author.id in self.in_commands:
@@ -596,7 +651,7 @@ class NextBus:
 
         if not [a for a in self.db.posts.find({'user': ctx.message.author.id})]:
             # The bot asks the user for a bus system.
-            await self.bot.say("I've got this!\nWhich bus system do you use?")
+            await self.bot.say(self.dialogue['ASKSYSTEM'])
 
             # Don't allow user to use any other commands while in this one.
             self.in_commands.append(ctx.message.author.id)
@@ -606,7 +661,7 @@ class NextBus:
 
             if not system_choice:
                 # Tell user when bot.wait_for_message times out.
-                await self.bot.say("I didn't pick up a response.")
+                await self.bot.say(self.dialogue['TIMEOUT'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -629,8 +684,7 @@ class NextBus:
 
             if not found_busses:
                 # Tell user that no matching bus systems were found.
-                await self.bot.say(
-                    "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+                await self.bot.say(self.dialogue['NORESULTS'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -659,14 +713,14 @@ class NextBus:
 
                 if not choice.content:
                     # Tell user when bot.wait_for_message times out.
-                    await self.bot.say("Sorry, I didn't pick up a response.")
+                    await self.bot.say(self.dialogue['TIMEOUT'])
 
                 try:
                     bus_system = found_busses[int(choice.content) - 1]
 
                 except IndexError:
                     # Tell the user if they provide an invalid index.
-                    await self.bot.say("I don't think that's a valid choice.")
+                    await self.bot.say(self.dialogue['BADCHOICE'])
 
                     # Allow users to call other commands.
                     self.in_commands.remove(ctx.message.author.id)
@@ -683,33 +737,26 @@ class NextBus:
                 bus_system['title']))
 
         # The bot asks the user for a route/line.
-        await self.bot.say('Which route/ line do want to set a notification for?')
+        await self.bot.say(self.dialoge['ASKLINE'])
 
         line_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
         if not line_choice:
             # Tell user when bot.wait_for_message times out.
-            await self.bot.say("Sorry, I didn't pick up a response.")
+            await self.bot.say(self.dialogue['TIMEOUT'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
 
             return
 
-        # Get all lines for the given bus system from the NextBus API.
-        async with aiohttp.ClientSession() as session:
-            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(bus_system['tag'])) as response:
-                lines = await response.json()
-
-        # Sort out all the matching lines.
-        found_lines = [line for line in lines['route']
-                       if line_choice.content.upper() in line['tag']]
+        found_lines = await self.getMatchingLines(
+            bus_system['tag'], line_choice.content)
 
         if not found_lines:
             # Tell user that no bus systems were found.
-            await self.bot.say(
-                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+            await self.bot.say(self.dialogue['NORESULTS'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
@@ -737,7 +784,7 @@ class NextBus:
 
             if not choice:
                 # Tell user when bot.wait_for_message times out.
-                await self.bot.say("Sorry, I didn't pick up a response.")
+                await self.bot.say(self.dialogue['TIMEOUT'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -749,7 +796,7 @@ class NextBus:
 
             except IndexError:
                 # Tell the user if they provide an invalid index.
-                await self.bot.say("I don't think that's a valid choice.")
+                await self.bot.say(self.dialogue['BADCHOICE'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -759,42 +806,26 @@ class NextBus:
         await self.bot.say('You selected {}!'.format(line['title']))
 
         # The bot asks the user for a first stop.
-        await self.bot.say("What's your first (starting) stop?")
+        await self.bot.say(self.dialogue['ASKSTOP1'])
 
         stop_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
         if not stop_choice:
             # Tell user when bot.wait_for_message times out.
-            await self.bot.say("Sorry, I didn't pick up a response.")
+            await self.bot.say(self.dialogue['TIMEOUT'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
 
             return
 
-        # Get all routes for the given bus and line from the NextBus API.
-        async with aiohttp.ClientSession() as session:
-            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
-                route_data = await response.json()
-
-        # Separate stop data and directional (in/outbound) data
-        stops = route_data['route']['stop']
-        direction_data = route_data['route']['direction']
-
-        # Sort out all matching stops.
-        found_stops = [
-            stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
-
-        # Sort out all directional data for the matching stops.
-        directions = [
-            direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                stop['tag'] for stop in direction['stop']]]
+        found_stops = await self.getMatchingStops(
+            bus_system['tag'], line['tag'], stop_choice.content)
 
         if not found_stops:
             # Tell user that no matching stops were found.
-            await self.bot.say(
-                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+            await self.bot.say(self.dialogue['NORESULTS'])
 
         elif len(found_stops) == 1:
             stop_1 = found_stops[0]
@@ -818,7 +849,7 @@ class NextBus:
 
             if not choice:
                 # Tell user when bot.wait_for_message times out.
-                await self.bot.say("Sorry, I didn't pick up a response.")
+                await self.bot.say(self.dialogue['TIMEOUT'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -830,7 +861,7 @@ class NextBus:
 
             except IndexError:
                 # Tell the user if they provide an invalid index.
-                await self.bot.say("That's not a valid choice.")
+                await self.bot.say(self.dialogue['BADCHOICE'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -840,42 +871,26 @@ class NextBus:
         await self.bot.say('You selected {}!'.format(stop_1['title']))
 
         # The bot asks the user for a second stop.
-        await self.bot.say("What's your second (destination) stop?")
+        await self.bot.say(self.dialogue['ASKSTOP2'])
 
         stop_choice = await self.bot.wait_for_message(
             author=ctx.message.author, timeout=300)
 
         if not stop_choice:
             # Tell user when bot.wait_for_message times out.
-            await self.bot.say("Sorry, I didn't pick up a response.")
+            await self.bot.say(self.dialogue['TIMEOUT'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
 
             return
 
-        # Get all routes for the given bus and line from the NextBus API.
-        async with aiohttp.ClientSession() as session:
-            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(bus_system['tag'], line['tag'])) as response:
-                route_data = await response.json()
-
-        # Separate stop data and directional (in/outbound) data
-        stops = route_data['route']['stop']
-        direction_data = route_data['route']['direction']
-
-        # Sort out all matching stops.
-        found_stops = [
-            stop for stop in stops if stop_choice.content.lower() in stop['title'].lower()]
-
-        # Sort out all directional data for the matching stops.
-        directions = [
-            direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
-                stop['tag'] for stop in direction['stop']]]
+        found_stops = await self.getMatchingStops(
+            bus_system['tag'], line['tag'], stop_choice.content)
 
         if not found_stops:
             # Tell user that no matching stops were found.
-            await self.bot.say(
-                "Oh, this is weird. I couldn't find anything.\nMaybe try using a different keyword.")
+            await self.bot.say(self.dialogue['NORESULTS'])
 
         elif len(found_stops) == 1:
             stop_2 = found_stops[0]
@@ -899,7 +914,7 @@ class NextBus:
 
             if not choice:
                 # Tell user when bot.wait_for_message times out.
-                await self.bot.say("Sorry, I didn't pick up a response.")
+                await self.bot.say(self.dialogue['TIMEOUT'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -911,7 +926,7 @@ class NextBus:
 
             except IndexError:
                 # Tell the user if they provide an invalid index.
-                await self.bot.say("That's not a valid choice.")
+                await self.bot.say(self.dialogue['BADCHOICE'])
 
                 # Allow users to call other commands.
                 self.in_commands.remove(ctx.message.author.id)
@@ -936,7 +951,7 @@ class NextBus:
 
         if not time_choice:
             # Tell user when bot.wait_for_message times out.
-            await self.bot.say("Sorry, I didn't pick up a response.")
+            await self.bot.say(self.dialogue['TIMEOUT'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
@@ -959,7 +974,7 @@ class NextBus:
 
         except Exception:
             # Tell user that there is an error.
-            await self.bot.say("I couldn't understand your time format.")
+            await self.bot.say(self.dialogue['BADTIME'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
@@ -982,7 +997,7 @@ class NextBus:
 
         if not time_choice:
             # Tell user when bot.wait_for_message times out.
-            await self.bot.say("Sorry, I didn't pick up a response.")
+            await self.bot.say(self.dialogue['TIMEOUT'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
@@ -1005,7 +1020,7 @@ class NextBus:
 
         except Exception:
             # Tell user that there is an error.
-            await self.bot.say("I couldn't understand your time format.")
+            await self.bot.say(self.dialogue['BADTIME'])
 
             # Allow users to call other commands.
             self.in_commands.remove(ctx.message.author.id)
@@ -1137,7 +1152,8 @@ class NextBus:
 
         return embed
 
-    def parseUserTime(self, userinput):
+    @classmethod
+    def parseUserTime(cls, userinput):
         if ':' in userinput:
             if 'PM' in userinput:
                 time = int(userinput.replace('PM', '').split(
@@ -1160,6 +1176,38 @@ class NextBus:
                     0]) * 60 + int(userinput.split()[1])
 
         return time
+
+    async def getMatchingStops(self, system, line, stopQuery):
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeConfig&a={}&r={}&terse'.format(system, line)) as response:
+                route_data = await response.json()
+
+        # Separate stop data and directional (in/outbound) data
+        stops = route_data['route']['stop']
+        direction_data = route_data['route']['direction']
+
+        # Sort out all matching stops.
+        found_stops = [
+            stop for stop in stops if stopQuery.lower() in stop['title'].lower()]
+
+        # Sort out all directional data for the matching stops.
+        directions = [
+            direction['name'] for direction in direction_data for stop in found_stops if stop['tag'] in [
+                stop['tag'] for stop in direction['stop']]]
+
+        return found_stops
+
+    async def getMatchingLines(self, system, lineQuery):
+        # Get all lines for the given bus system from the NextBus API.
+        async with aiohttp.ClientSession() as session:
+            async with session.get('http://webservices.nextbus.com/service/publicJSONFeed?command=routeList&a={}'.format(system)) as response:
+                lines = await response.json()
+
+        # Sort out all the matching lines.
+        found_lines = [line for line in lines['route']
+                       if lineQuery.upper() in line['tag']]
+
+        return found_lines
 
 
 def setup(bot):
