@@ -32,4 +32,4 @@ client.on('message', message => {
 
 client.login(process.env.TOKEN)
     .then(() => console.log('Bot Up!'))
-    .catch(console.log);
+    .catch(console.error);
